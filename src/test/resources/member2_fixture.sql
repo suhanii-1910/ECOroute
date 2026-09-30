@@ -1,0 +1,84 @@
+-- PROVISIONAL MEMBER 2 TEST FIXTURE ONLY. Not Member 1 production DDL.
+-- MySQL 8.0.16+ / InnoDB; H2 MySQL mode is only a local test substitute.
+CREATE TABLE ZONE (
+ zone_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ zone_name VARCHAR(100) NOT NULL UNIQUE,
+ description VARCHAR(1000)
+) ENGINE=InnoDB;
+CREATE TABLE WASTE_GENERATOR (
+ generator_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(200) NOT NULL,
+ generator_type VARCHAR(30) NOT NULL,
+ contact_person VARCHAR(200), phone VARCHAR(40), email VARCHAR(254), address VARCHAR(1000),
+ latitude DECIMAL(9,6), longitude DECIMAL(9,6), zone_id BIGINT NOT NULL,
+ is_active BOOLEAN NOT NULL DEFAULT TRUE, created_date DATETIME(6) NOT NULL,
+ FOREIGN KEY (zone_id) REFERENCES ZONE(zone_id) ON DELETE RESTRICT,
+ CHECK (generator_type IN ('HOSPITAL','HOUSING_SOCIETY','FACTORY','HOTEL','SCHOOL','RESTAURANT','OFFICE','OTHER'))
+) ENGINE=InnoDB;
+CREATE TABLE `USER` (
+ user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ username VARCHAR(100) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
+ role VARCHAR(20) NOT NULL, generator_id BIGINT,
+ is_active BOOLEAN NOT NULL DEFAULT TRUE, created_date DATETIME(6) NOT NULL,
+ FOREIGN KEY (generator_id) REFERENCES WASTE_GENERATOR(generator_id) ON DELETE RESTRICT,
+ CHECK ((role = 'GENERATOR' AND generator_id IS NOT NULL) OR (role IN ('ADMIN','OPERATOR') AND generator_id IS NULL))
+) ENGINE=InnoDB;
+CREATE TABLE WASTE_CATEGORY (
+ category_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ category_name VARCHAR(100) NOT NULL UNIQUE, description VARCHAR(1000), hazard_level VARCHAR(20) NOT NULL,
+ CHECK (hazard_level IN ('LOW','MEDIUM','HIGH'))
+) ENGINE=InnoDB;
+CREATE TABLE VEHICLE (
+ vehicle_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ vehicle_number VARCHAR(40) NOT NULL UNIQUE, capacity_kg DECIMAL(12,3) NOT NULL,
+ status VARCHAR(20) NOT NULL, assigned_zone_id BIGINT, created_date DATETIME(6) NOT NULL,
+ FOREIGN KEY (assigned_zone_id) REFERENCES ZONE(zone_id) ON DELETE SET NULL,
+ CHECK (capacity_kg > 0), CHECK (status IN ('AVAILABLE','IN_USE','MAINTENANCE'))
+) ENGINE=InnoDB;
+CREATE TABLE ROUTE (
+ route_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+ vehicle_id BIGINT NOT NULL, zone_id BIGINT NOT NULL, route_date DATE NOT NULL,
+ status VARCHAR(20) NOT NULL, created_date DATETIME(6) NOT NULL,
+ FOREIGN KEY (vehicle_id) REFERENCES VEHICLE(vehicle_id) ON DELETE RESTRICT,
+ FOREIGN KEY (zone_id) REFERENCES ZONE(zone_id) ON DELETE RESTRICT,
+ CHECK (status IN ('PLANNED','COMPLETED'))
+) ENGINE=InnoDB;
+CREATE TABLE PICKUP_REQUEST (
+ request_id BIGINT AUTO_INCREMENT PRIMARY KEY, generator_id BIGINT NOT NULL,
+ request_date DATETIME(6) NOT NULL, preferred_pickup_date DATE,
+ status VARCHAR(20) NOT NULL, completion_date DATETIME(6), remarks VARCHAR(1000),
+ FOREIGN KEY (generator_id) REFERENCES WASTE_GENERATOR(generator_id) ON DELETE RESTRICT,
+ CHECK (status IN ('PENDING','ASSIGNED','COMPLETED','CANCELLED'))
+) ENGINE=InnoDB;
+CREATE TABLE ROUTE_STOP (
+ stop_id BIGINT AUTO_INCREMENT PRIMARY KEY, route_id BIGINT NOT NULL,
+ request_id BIGINT NOT NULL UNIQUE, stop_sequence INT NOT NULL, status VARCHAR(20) NOT NULL,
+ arrival_time DATETIME(6), completion_time DATETIME(6),
+ UNIQUE (route_id, stop_sequence),
+ FOREIGN KEY (route_id) REFERENCES ROUTE(route_id) ON DELETE CASCADE,
+ FOREIGN KEY (request_id) REFERENCES PICKUP_REQUEST(request_id) ON DELETE RESTRICT,
+ CHECK (stop_sequence > 0), CHECK (status IN ('PENDING','COMPLETED'))
+) ENGINE=InnoDB;
+CREATE TABLE REQUEST_WASTE (
+ request_id BIGINT NOT NULL, category_id BIGINT NOT NULL,
+ estimated_quantity DECIMAL(12,3) NOT NULL, actual_quantity DECIMAL(12,3),
+ PRIMARY KEY (request_id, category_id),
+ FOREIGN KEY (request_id) REFERENCES PICKUP_REQUEST(request_id) ON DELETE CASCADE,
+ FOREIGN KEY (category_id) REFERENCES WASTE_CATEGORY(category_id) ON DELETE RESTRICT,
+ CHECK (estimated_quantity > 0), CHECK (actual_quantity IS NULL OR actual_quantity >= 0)
+) ENGINE=InnoDB;
+CREATE TABLE HOSPITAL (
+ generator_id BIGINT PRIMARY KEY, license_number VARCHAR(100) NOT NULL,
+ biomedical_auth_number VARCHAR(100) NOT NULL, auth_expiry_date DATE NOT NULL,
+ FOREIGN KEY (generator_id) REFERENCES WASTE_GENERATOR(generator_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE HOUSING_SOCIETY (
+ generator_id BIGINT PRIMARY KEY, registration_number VARCHAR(100) NOT NULL, number_of_flats INT NOT NULL,
+ FOREIGN KEY (generator_id) REFERENCES WASTE_GENERATOR(generator_id) ON DELETE CASCADE,
+ CHECK (number_of_flats > 0)
+) ENGINE=InnoDB;
+CREATE TABLE FACTORY (
+ generator_id BIGINT PRIMARY KEY, industry_type VARCHAR(100) NOT NULL,
+ pollution_consent_no VARCHAR(100) NOT NULL, consent_expiry_date DATE NOT NULL,
+ FOREIGN KEY (generator_id) REFERENCES WASTE_GENERATOR(generator_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
