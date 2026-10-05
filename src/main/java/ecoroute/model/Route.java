@@ -8,6 +8,7 @@ public class Route {
     private Long routeId;
     private Long vehicleId;
     private Long zoneId;
+    private Long siteId;
     private LocalDate routeDate;
     private String status;
     private LocalDateTime createdDate;
@@ -15,6 +16,11 @@ public class Route {
     public Route() {}
 
     public Route(Long routeId, Long vehicleId, Long zoneId, LocalDate routeDate, String status, LocalDateTime createdDate) {
+        this(routeId, vehicleId, zoneId, routeDate, status, createdDate, null);
+    }
+
+    public Route(Long routeId, Long vehicleId, Long zoneId, LocalDate routeDate, String status, LocalDateTime createdDate, Long siteId) {
+        this.siteId = siteId;
         this.routeId = routeId;
         this.vehicleId = vehicleId;
         this.zoneId = zoneId;
@@ -31,6 +37,9 @@ public class Route {
 
     public Long getZoneId() { return zoneId; }
     public void setZoneId(Long zoneId) { this.zoneId = zoneId; }
+
+    public Long getSiteId() { return siteId; }
+    public void setSiteId(Long siteId) { this.siteId = siteId; }
 
     public LocalDate getRouteDate() { return routeDate; }
     public void setRouteDate(LocalDate routeDate) { this.routeDate = routeDate; }

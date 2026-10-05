@@ -14,6 +14,7 @@ final class Access {
         User user = new UserDAO(connection).findById(session.getUserId())
                 .orElseThrow(() -> new InvalidRequestException("Session user no longer exists."));
         Validation.require(user.isActive() && user.getRole() != null && ROLES.contains(user.getRole()), "User is inactive or has an invalid role.");
+        Validation.require(new UserDAO(connection).hasValidSubtype(user), "User subtype is missing or inconsistent.");
         Validation.require(user.getRole().equals(session.getRole())
                 && Objects.equals(user.getGeneratorId(), session.getGeneratorId()), "User permissions changed; sign in again.");
         Validation.require(GENERATOR.equals(user.getRole()) ? user.getGeneratorId() != null : user.getGeneratorId() == null,

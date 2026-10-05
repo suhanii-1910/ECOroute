@@ -23,7 +23,7 @@ public final class VehicleService {
         return database.read(c -> { Access.staff(c, session); return new VehicleDAO(c).findById(id); });
     }
     public long create(UserSession session, String number, java.math.BigDecimal capacity, Long homeZone) {
-        Validation.text(number, "Vehicle number"); Validation.quantity(capacity, true, "Capacity");
+        Validation.text(number, "Vehicle number"); Validation.vehicleCapacity(capacity);
         if (homeZone != null) Validation.id(homeZone, "Home zone");
         return database.transaction(c -> {
             Access.admin(c, session);

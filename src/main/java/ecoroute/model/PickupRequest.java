@@ -8,6 +8,7 @@ public class PickupRequest {
     private Long requestId;
     private Long generatorId;
     private LocalDateTime requestDate;
+    // Required when persisted; service and DAO reject a missing date.
     private LocalDate preferredPickupDate;
     private String status;
     private LocalDateTime completionDate;

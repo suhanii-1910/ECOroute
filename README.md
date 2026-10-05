@@ -24,7 +24,8 @@ waste pickup requests, vehicle assignment and collection routes.
 
 The backend uses plain Java 17 and JDBC. It includes table models, parameterized
 DAOs, authenticated services, transactional request/route/collection workflows,
-reports and backend tests. Member 3 supplies route order; Member 4 calls services
+reports and backend tests. Disposal-site retrieval, optional route destinations and
+user subtype checks follow the frozen schema. Member 3 supplies route order; Member 4 calls services
 from Swing. Team ownership above remains unchanged.
 
 ### Build and test
@@ -36,7 +37,7 @@ mvn clean test
 mvn package
 ```
 
-Default tests run without MySQL using an isolated, provisional H2 fixture.
+Default tests run without MySQL using an isolated H2 fixture aligned with the FINAL FREEZED relational design.
 Compilation explicitly targets Java 17 even when Maven runs on a newer JDK.
 
 For the application, export `ECOROUTE_DB_URL`, `ECOROUTE_DB_USER` and

@@ -4,7 +4,6 @@ import ecoroute.model.User;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Optional;
 
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
@@ -29,5 +28,21 @@ public final class UserDAO {
 
     public Optional<User> findByUsername(String username) {
         return Jdbc.one(connection, SELECT + " WHERE username = ?", UserDAO::map, username);
+    }
+
+    /** Marker tables have no extra domain fields. Preserve the existing role-to-subtype mapping. */
+    public boolean hasValidSubtype(User user) {
+        return Jdbc.one(connection, """
+                SELECT g.user_id AS generator_user_id, s.user_id AS staff_user_id
+                FROM `USER` u
+                LEFT JOIN GENERATOR_USER g ON g.user_id = u.user_id
+                LEFT JOIN STAFF_USER s ON s.user_id = u.user_id
+                WHERE u.user_id = ?
+                """, r -> {
+            boolean generator = Jdbc.nullableLong(r, "generator_user_id") != null;
+            boolean staff = Jdbc.nullableLong(r, "staff_user_id") != null;
+            return ecoroute.db.DatabaseContract.GENERATOR.equals(user.getRole())
+                    ? generator && !staff : staff && !generator;
+        }, user.getUserId()).orElse(false);
     }
 }

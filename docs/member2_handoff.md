@@ -51,20 +51,22 @@ List<RequestWaste> findWaste(UserSession session, long requestId)
 void cancel(UserSession session, long requestId)
 ```
 
-`WasteLine(long categoryId, BigDecimal estimatedQuantity)` supplies estimates in kg. `preferredDate` and remarks may be null. The service sets generated ID, creation date, initial status and null actuals. Generator users are restricted to their own generator ID. Pending requests require staff access. Cancellation only accepts PENDING.
+`WasteLine(long categoryId, BigDecimal estimatedQuantity)` supplies estimates in kg. `preferredDate` is required (today or later); remarks may be null. Estimates/actuals use DECIMAL(12,2) kg and vehicle capacity DECIMAL(10,2), without rounding. The service sets generated ID, creation date, initial status and null actuals. Generator users are restricted to their own generator ID. Pending requests require staff access. Cancellation only accepts PENDING.
 
 ### Supplied route persistence
 
 ```java
 long save(UserSession session, long vehicleId, long zoneId, LocalDate date,
           List<RoutePersistenceService.PlannedStop> stops)
+long save(UserSession session, long vehicleId, long zoneId, LocalDate date,
+          List<RoutePersistenceService.PlannedStop> stops, Long siteId)
 Optional<Route> findById(UserSession session, long routeId)
 List<Route> findByVehicle(UserSession session, long vehicleId)
 List<Route> findByZone(UserSession session, long zoneId)
 List<RouteStop> findStops(UserSession session, long routeId)
 ```
 
-`PlannedStop(long requestId, int sequence)` has positive ascending unique sequences. The list is already ordered by Member 3. The service validates eligibility, zones, capacity, vehicle state and duplicate assignment. It saves route/stops and updates pickup/vehicle statuses in one transaction. It does not group, choose vehicles, calculate distances or reorder stops. All these methods require ADMIN/OPERATOR.
+`PlannedStop(long requestId, int sequence)` has positive ascending unique sequences. The list is already ordered by Member 3. The service validates eligibility, zones, capacity, vehicle state and duplicate assignment. It saves route/stops and updates pickup/vehicle statuses in one transaction. It does not group, choose vehicles, calculate distances or reorder stops. All these methods require ADMIN/OPERATOR. The original save overload delegates with null siteId. The new overload stores a disposal-site ID selected by Member 3 or the caller and validates its positive ID and existence. It does not select the nearest site or infer status/capacity suitability. Route.getSiteId() returns the nullable destination. Destination selection is supported at save time; later destination editing is not exposed in this migration.
 
 ### Collection
 
@@ -99,7 +101,7 @@ void update(UserSession session, WasteGenerator generator)
 void setActive(UserSession session, long id, boolean active)
 ```
 
-`Profile(WasteGenerator generator, Hospital hospital, HousingSociety housingSociety, Factory factory)` combines separate table models for handoff. For specialized types, supply exactly the corresponding subtype object; other subtype values are null. For OFFICE/OTHER/etc. all subtype values are null. On creation the base ID is null, creation time is service-owned, active is true and the generated ID is shared with the subtype. The input objects remain unchanged if the transaction succeeds or fails.
+`Profile(WasteGenerator generator, Hospital hospital, HousingSociety housingSociety, Factory factory)` combines separate table models for handoff. For specialized types, supply exactly the corresponding subtype object; other subtype values are null. For OFFICE/OTHER/etc. all subtype values are null. On creation the base ID is null, creation time is service-owned, active is true and the generated ID is shared with the subtype. The base address is required; subtype detail fields and expiry dates may be null. HousingSociety.getNumberOfFlats() now returns Integer and may be null. The input objects remain unchanged if the transaction succeeds or fails.
 
 Admin owns writes; staff can list; generator users can read their own profile. Base updates preserve generator type, active flag, creation time and subtype rows. Subtype editing is not exposed. Zone changes are blocked once any pickup history exists.
 
@@ -108,12 +110,15 @@ Admin owns writes; staff can list; generator users can read their own profile. B
 ```java
 List<Zone> zones(UserSession session)
 List<WasteCategory> categories(UserSession session)
+List<DisposalSite> disposalSites(UserSession session)
+Optional<DisposalSite> disposalSite(UserSession session, long siteId)
+List<DisposalSite> disposalSitesByStatus(UserSession session, String status)
 long saveZone(UserSession session, Zone zone)
 long saveCategory(UserSession session, WasteCategory category)
 void deleteUnreferencedCategory(UserSession session, long id)
 ```
 
-Reads require authentication; writes require admin. Null ID inserts; a positive ID updates. Category DELETE is protected by FKs.
+Zone/category reads require authentication; disposal-site reads require staff; writes require admin. Disposal-site status filtering is exact; the agreed production status values still need Member 1 confirmation. Null ID inserts; a positive ID updates. Category DELETE is protected by FKs.
 
 ### Reports
 
@@ -136,11 +141,14 @@ After authenticating an ADMIN or OPERATOR and computing a plan:
 ```java
 // `session`, `selectedVehicleId`, `zoneId`, `firstRequestId`, and `secondRequestId`
 // come from authenticated services and Member 3's algorithm output.
+Long selectedSiteId = null; // Or a disposal-site ID already selected by Member 3.
 long routeId = routeStore.save(session, selectedVehicleId, zoneId, LocalDate.now(),
         List.of(new RoutePersistenceService.PlannedStop(firstRequestId, 1),
-                new RoutePersistenceService.PlannedStop(secondRequestId, 2)));
+                new RoutePersistenceService.PlannedStop(secondRequestId, 2)), selectedSiteId);
 List<RouteStop> persistedOrder = routeStore.findStops(session, routeId);
 ```
+
+Use `catalog.disposalSites(session)` or `catalog.disposalSitesByStatus(session, agreedStatus)` for destination input. Member 3 sends the already chosen vehicle ID, zone ID, date, ordered request IDs/sequences and optional site ID. Member 2 validates and persists the supplied plan atomically; route and nearest-disposal-site calculations stay with Member 3.
 
 Use `requests.findPending(session)`, `generators.findByZone(session, zoneId)`, `requests.findWaste(session, requestId)` and `vehicles.findAvailable(session)` as algorithm inputs. Request zones come from generators; they are not a pickup field. The service revalidates when saving because another staff member may have assigned a request since the algorithm read it. Refresh on conflict; do not assume a previously available vehicle is still free.
 
@@ -162,7 +170,7 @@ Creating a generator's request:
 ```java
 long requestId = requests.create(session, session.getGeneratorId(),
         LocalDate.now().plusDays(1), "Collect at reception",
-        List.of(new PickupRequestService.WasteLine(selectedCategoryId, new BigDecimal("12.500"))));
+        List.of(new PickupRequestService.WasteLine(selectedCategoryId, new BigDecimal("12.50"))));
 ```
 
 Collection by a staff session, using actual quantities entered for every category:
@@ -172,11 +180,13 @@ collections.complete(staffSession, stopId, actualKgByCategory,
         recordedArrivalTime, recordedCompletionTime);
 ```
 
+For a route destination selector, call `catalog.disposalSites(staffSession)` and pass the selected nullable ID to `routeStore.save(...)`. To display a saved destination, read `routeStore.findById(...)`, then `catalog.disposalSite(...)` when getSiteId() is nonnull. A null destination means “Not selected”. Swing calls services only: no raw SQL, JDBC connections or direct DAO calls.
+
 Call JDBC services from SwingWorker/background work so the UI event thread stays responsive. Transfer returned data onto the Swing event thread for display. The backend does not update Swing components. Keep transaction scope inside one service call; do not hold a Connection while a user fills out a form.
 
 ## DAO and connection ownership
 
-All DAOs accept `new XxxDAO(Connection connection)` and borrow that connection. `findById` returns Optional, lists are empty when there are no rows, generated inserts return long, and updates/deletes return void or throw if exactly one row was not matched. Status writes take `(id, expected, next)` to detect conflicts; RequestDAO.cancel uses PENDING → CANCELLED. GeneratorSubtypeDAO handles separate subtype inserts/reads. UserDAO exposes findById/findByUsername only.
+All DAOs accept `new XxxDAO(Connection connection)` and borrow that connection. `findById` returns Optional, lists are empty when there are no rows, generated inserts return long, and updates/deletes return void or throw if exactly one row was not matched. Status writes take `(id, expected, next)` to detect conflicts; RequestDAO.cancel uses PENDING → CANCELLED. GeneratorSubtypeDAO handles separate subtype inserts/reads. UserDAO exposes findById/findByUsername plus hasValidSubtype for internal authentication checks. No user-creation API is added. Member 1 must provision USER and exactly one matching marker atomically. GENERATOR uses GENERATOR_USER; existing ADMIN/OPERATOR roles use STAFF_USER. Missing, dual and mismatched markers invalidate login and existing sessions.
 
 Use DAOs directly only for trusted backend composition inside `Database.read` or `Database.transaction`. Services own authorization, validation, lifecycle, commit and rollback. DAO locks (`lockById`) require an active transaction to protect anything beyond a single statement.
 

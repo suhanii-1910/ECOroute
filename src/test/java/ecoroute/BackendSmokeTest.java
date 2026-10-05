@@ -54,12 +54,12 @@ public class BackendSmokeTest {
         categoryId = database.transaction(c -> new CategoryDAO(c).insert(new WasteCategory(null, "Paper", null, "LOW")));
         secondCategoryId = database.transaction(c -> new CategoryDAO(c).insert(new WasteCategory(null, "Plastic", null, "LOW")));
         vehicleId = seedVehicle("TEST-1");
-        sql("INSERT INTO `USER` (username,password_hash,role,generator_id,is_active,created_date) VALUES (?,?,?,?,?,?)",
-                "admin", HASH, ADMIN, null, true, LocalDateTime.now());
-        sql("INSERT INTO `USER` (username,password_hash,role,generator_id,is_active,created_date) VALUES (?,?,?,?,?,?)",
-                "operator", HASH, OPERATOR, null, true, LocalDateTime.now());
-        sql("INSERT INTO `USER` (username,password_hash,role,generator_id,is_active,created_date) VALUES (?,?,?,?,?,?)",
-                "generator", HASH, GENERATOR, generatorId, true, LocalDateTime.now());
+        seedUser("admin", ADMIN, null);
+        seedUser("operator", OPERATOR, null);
+        seedUser("generator", GENERATOR, generatorId);
+        sql("INSERT INTO DISPOSAL_SITE (site_name,site_type,address,latitude,longitude,capacity_kg,status) VALUES (?,?,?,?,?,?,?)",
+                "Test processing site", "PROCESSING", "Fixture site address", new BigDecimal("28.1234567"),
+                new BigDecimal("77.1234567"), new BigDecimal("1234567890.12"), "OPEN");
         AuthService auth = new AuthService(database);
         admin = auth.login("admin", PASSWORD.toCharArray());
         operator = auth.login("operator", PASSWORD.toCharArray());
@@ -71,9 +71,29 @@ public class BackendSmokeTest {
     @AfterEach
     void tearDown() throws Exception { if (anchor != null) anchor.close(); }
 
+    protected void seedUser(String username, String role, Long generator) {
+        database.transaction(c -> {
+            long id;
+            try (PreparedStatement s = c.prepareStatement(
+                    "INSERT INTO `USER` (username,password_hash,role,generator_id,is_active,created_date) VALUES (?,?,?,?,?,?)",
+                    Statement.RETURN_GENERATED_KEYS)) {
+                s.setString(1, username); s.setString(2, HASH); s.setString(3, role);
+                s.setObject(4, generator); s.setBoolean(5, true); s.setObject(6, LocalDateTime.now());
+                assertEquals(1, s.executeUpdate());
+                try (ResultSet keys = s.getGeneratedKeys()) { assertTrue(keys.next()); id = keys.getLong(1); }
+            }
+            String marker = GENERATOR.equals(role) ? "INSERT INTO GENERATOR_USER (user_id) VALUES (?)"
+                    : "INSERT INTO STAFF_USER (user_id) VALUES (?)";
+            try (PreparedStatement s = c.prepareStatement(marker)) {
+                s.setLong(1, id); assertEquals(1, s.executeUpdate());
+            }
+            return null;
+        });
+    }
+
     protected long seedGenerator(String name, long zone) {
         return database.transaction(c -> new GeneratorDAO(c).insert(new WasteGenerator(null, name, "OFFICE", null,
-                null, null, null, null, null, zone, true, LocalDateTime.now())));
+                null, null, "Fixture address", null, null, zone, true, LocalDateTime.now())));
     }
     protected long seedVehicle(String number) {
         return database.transaction(c -> new VehicleDAO(c).insert(new Vehicle(null, number, new BigDecimal("100"),
@@ -97,7 +117,7 @@ public class BackendSmokeTest {
         });
     }
     protected long request(long generator, long category, String kg) {
-        return requests.create(admin, generator, null, "Test", List.of(new PickupRequestService.WasteLine(category, new BigDecimal(kg))));
+        return requests.create(admin, generator, LocalDate.now(), "Test", List.of(new PickupRequestService.WasteLine(category, new BigDecimal(kg))));
     }
     protected long route(long requestId) {
         return routes.save(operator, vehicleId, zoneId, LocalDate.now(), List.of(new RoutePersistenceService.PlannedStop(requestId, 1)));
@@ -145,14 +165,14 @@ public class BackendSmokeTest {
     @Test void requestCreationIsAtomicAndNullIsNotZero() {
         long id = request(generatorId, categoryId, "10.250");
         assertNull(requests.findWaste(generatorUser, id).get(0).getActualQuantity());
-        assertThrows(InvalidRequestException.class, () -> requests.create(admin, generatorId, null, null, List.of(
+        assertThrows(InvalidRequestException.class, () -> requests.create(admin, generatorId, LocalDate.now(), null, List.of(
                 new PickupRequestService.WasteLine(categoryId, BigDecimal.ONE),
                 new PickupRequestService.WasteLine(Long.MAX_VALUE, BigDecimal.ONE))));
         assertEquals(1, count("PICKUP_REQUEST"));
         assertEquals(1, count("REQUEST_WASTE"));
         // A SQL failure after the first line must roll back both tables too.
         assertThrows(DatabaseOperationException.class, () -> database.transaction(c -> {
-            long newId = new RequestDAO(c).insert(new PickupRequest(null, generatorId, LocalDateTime.now(), null, PENDING, null, null));
+            long newId = new RequestDAO(c).insert(new PickupRequest(null, generatorId, LocalDateTime.now(), LocalDate.now(), PENDING, null, null));
             RequestWasteDAO dao = new RequestWasteDAO(c);
             dao.insertLine(new RequestWaste(newId, categoryId, BigDecimal.ONE, null));
             dao.insertLine(new RequestWaste(newId, Long.MAX_VALUE, BigDecimal.ONE, null));
@@ -165,9 +185,9 @@ public class BackendSmokeTest {
         assertThrows(InvalidRequestException.class, () -> request(generatorId, categoryId, "0"));
         assertThrows(InvalidRequestException.class, () -> request(generatorId, categoryId, "-1"));
         assertThrows(InvalidRequestException.class, () -> request(generatorId, categoryId, "1.0001"));
-        assertThrows(InvalidRequestException.class, () -> requests.create(admin, generatorId, null, null, List.of(
+        assertThrows(InvalidRequestException.class, () -> requests.create(admin, generatorId, LocalDate.now(), null, List.of(
                 new PickupRequestService.WasteLine(categoryId, BigDecimal.ONE), new PickupRequestService.WasteLine(categoryId, BigDecimal.TEN))));
-        assertThrows(InvalidRequestException.class, () -> requests.create(generatorUser, otherGeneratorId, null, null,
+        assertThrows(InvalidRequestException.class, () -> requests.create(generatorUser, otherGeneratorId, LocalDate.now(), null,
                 List.of(new PickupRequestService.WasteLine(categoryId, BigDecimal.ONE))));
         long other = request(otherGeneratorId, categoryId, "1");
         assertThrows(InvalidRequestException.class, () -> requests.findById(generatorUser, other));
@@ -268,7 +288,7 @@ public class BackendSmokeTest {
     }
 
     @Test void rejectsInvalidCollectionWithoutChangingQuantities() {
-        long request = requests.create(admin, generatorId, null, null, List.of(
+        long request = requests.create(admin, generatorId, LocalDate.now(), null, List.of(
                 new PickupRequestService.WasteLine(categoryId, BigDecimal.TEN), new PickupRequestService.WasteLine(secondCategoryId, BigDecimal.ONE)));
         long stop = firstStop(route(request));
         assertThrows(InvalidRequestException.class, () -> complete(stop, Map.of(categoryId, BigDecimal.ONE)));
@@ -286,7 +306,7 @@ public class BackendSmokeTest {
     }
 
     @Test void reportsDoNotMultiplyWeightsAndPreserveUncollectedNulls() {
-        long first = requests.create(admin, generatorId, null, null, List.of(
+        long first = requests.create(admin, generatorId, LocalDate.now(), null, List.of(
                 new PickupRequestService.WasteLine(categoryId, BigDecimal.TEN), new PickupRequestService.WasteLine(secondCategoryId, new BigDecimal("20"))));
         long second = request(generatorId, categoryId, "5");
         long route = routes.save(admin, vehicleId, zoneId, LocalDate.now(), List.of(
@@ -311,7 +331,7 @@ public class BackendSmokeTest {
 
     @Test void generatorAndSubtypeAreSavedTogether() {
         GeneratorService service = new GeneratorService(database);
-        WasteGenerator hospital = new WasteGenerator(null, "Clinic", "HOSPITAL", null, null, null, null, null, null, zoneId, true, null);
+        WasteGenerator hospital = new WasteGenerator(null, "Clinic", "HOSPITAL", null, null, null, "Clinic address", null, null, zoneId, true, null);
         assertThrows(InvalidRequestException.class, () -> service.create(admin, new GeneratorService.Profile(hospital, null, null, null)));
         long id = service.create(admin, new GeneratorService.Profile(hospital,
                 new Hospital(null, "license", "auth", LocalDate.now().plusYears(1)), null, null));
@@ -351,11 +371,11 @@ public class BackendSmokeTest {
 
     @Test void serviceTransactionsRollbackAfterLateJdbcFailures() {
         Database failingRequestDb = new Database(FailingConnections.onStatement(provider, "INSERT INTO `REQUEST_WASTE`", 2));
-        assertThrows(DatabaseOperationException.class, () -> new PickupRequestService(failingRequestDb).create(admin, generatorId, null, null,
+        assertThrows(DatabaseOperationException.class, () -> new PickupRequestService(failingRequestDb).create(admin, generatorId, LocalDate.now(), null,
                 List.of(new PickupRequestService.WasteLine(categoryId, BigDecimal.TEN),
                         new PickupRequestService.WasteLine(secondCategoryId, BigDecimal.ONE))));
         assertEquals(0, count("PICKUP_REQUEST")); assertEquals(0, count("REQUEST_WASTE"));
-        long first = requests.create(admin, generatorId, null, null, List.of(
+        long first = requests.create(admin, generatorId, LocalDate.now(), null, List.of(
                 new PickupRequestService.WasteLine(categoryId, BigDecimal.TEN),
                 new PickupRequestService.WasteLine(secondCategoryId, BigDecimal.ONE)));
         long second = request(generatorId, categoryId, "1");
@@ -386,5 +406,139 @@ public class BackendSmokeTest {
             connection.rollback();
         }
         assertEquals(2, database.read(c -> new ZoneDAO(c).findAll()).size());
+    }
+
+    @Test void disposalSiteRetrievalPreservesAllFieldsAndFiltersStatusAsData() {
+        CatalogService catalog = new CatalogService(database);
+        DisposalSite site = catalog.disposalSites(operator).get(0);
+        assertTrue(site.getSiteId() > 0);
+        DisposalSite loaded = catalog.disposalSite(admin, site.getSiteId()).orElseThrow();
+        assertEquals("Test processing site", loaded.getSiteName());
+        assertEquals("PROCESSING", loaded.getSiteType());
+        assertEquals("Fixture site address", loaded.getAddress());
+        assertEquals(new BigDecimal("28.1234567"), loaded.getLatitude());
+        assertEquals(new BigDecimal("77.1234567"), loaded.getLongitude());
+        assertEquals(new BigDecimal("1234567890.12"), loaded.getCapacityKg());
+        assertEquals("OPEN", loaded.getStatus()); // Fixture example, not a prescribed status vocabulary.
+        assertEquals(1, catalog.disposalSitesByStatus(operator, "OPEN").size());
+        assertTrue(catalog.disposalSitesByStatus(operator, "OPEN' OR '1'='1").isEmpty());
+        assertTrue(catalog.disposalSite(operator, 999999).isEmpty());
+        assertThrows(InvalidRequestException.class, () -> catalog.disposalSites(generatorUser));
+        sql("DELETE FROM DISPOSAL_SITE WHERE site_id = ?", site.getSiteId());
+        assertTrue(catalog.disposalSites(operator).isEmpty());
+    }
+
+    @Test void routeDestinationIsOptionalAndMappedOnEveryReadPath() {
+        long first = request(generatorId, categoryId, "1");
+        long noDestination = route(first); // Existing save signature remains supported.
+        assertNull(routes.findById(operator, noDestination).orElseThrow().getSiteId());
+        long siteId = new CatalogService(database).disposalSites(operator).get(0).getSiteId();
+        long secondVehicle = seedVehicle("DESTINATION-2");
+        long second = request(generatorId, categoryId, "1");
+        long withDestination = routes.save(operator, secondVehicle, zoneId, LocalDate.now(),
+                List.of(new RoutePersistenceService.PlannedStop(second, 3)), siteId);
+        assertEquals(siteId, routes.findById(operator, withDestination).orElseThrow().getSiteId());
+        assertEquals(siteId, routes.findByVehicle(operator, secondVehicle).get(0).getSiteId());
+        assertEquals(siteId, routes.findByZone(operator, zoneId).stream()
+                .filter(r -> r.getRouteId() == withDestination).findFirst().orElseThrow().getSiteId());
+        Long lockedSiteId = database.transaction(c -> new RouteDAO(c).lockById(withDestination).orElseThrow().getSiteId());
+        assertEquals(siteId, lockedSiteId);
+        assertEquals(3, routes.findStops(operator, withDestination).get(0).getStopSequence());
+        assertThrows(DatabaseOperationException.class, () -> sql("DELETE FROM DISPOSAL_SITE WHERE site_id = ?", siteId));
+    }
+
+    @Test void invalidDestinationAndLateFailureLeaveNoPartialAssignment() {
+        long request = request(generatorId, categoryId, "1");
+        List<RoutePersistenceService.PlannedStop> plan = List.of(new RoutePersistenceService.PlannedStop(request, 1));
+        for (long invalid : new long[]{0, -1, 999999}) {
+            assertThrows(InvalidRequestException.class,
+                    () -> routes.save(operator, vehicleId, zoneId, LocalDate.now(), plan, invalid));
+        }
+        DatabaseOperationException fk = assertThrows(DatabaseOperationException.class, () -> database.transaction(c ->
+                new RouteDAO(c).insert(new Route(null, vehicleId, zoneId, LocalDate.now(), PLANNED, LocalDateTime.now(), 999999L))));
+        assertInstanceOf(SQLException.class, fk.getCause());
+        long siteId = new CatalogService(database).disposalSites(operator).get(0).getSiteId();
+        Database failing = new Database(FailingConnections.onStatement(provider, "UPDATE `VEHICLE`", 1));
+        assertThrows(DatabaseOperationException.class, () -> new RoutePersistenceService(failing)
+                .save(operator, vehicleId, zoneId, LocalDate.now(), plan, siteId));
+        assertEquals(0, count("ROUTE")); assertEquals(0, count("ROUTE_STOP"));
+        assertEquals(PENDING, requests.findById(admin, request).orElseThrow().getStatus());
+        assertEquals(AVAILABLE, new VehicleService(database).findById(admin, vehicleId).orElseThrow().getStatus());
+        assertEquals(1, count("DISPOSAL_SITE"));
+    }
+
+    @Test void preferredPickupDateIsRequiredByServiceDaoAndFixture() {
+        assertThrows(InvalidRequestException.class, () -> requests.create(admin, generatorId, null, null,
+                List.of(new PickupRequestService.WasteLine(categoryId, BigDecimal.ONE))));
+        assertThrows(InvalidRequestException.class, () -> database.transaction(c -> new RequestDAO(c).insert(
+                new PickupRequest(null, generatorId, LocalDateTime.now(), null, PENDING, null, null))));
+        assertThrows(DatabaseOperationException.class, () -> sql(
+                "INSERT INTO PICKUP_REQUEST (generator_id,request_date,preferred_pickup_date,status) VALUES (?,?,?,?)",
+                generatorId, LocalDateTime.now(), null, PENDING));
+        assertEquals(0, count("PICKUP_REQUEST")); assertEquals(0, count("REQUEST_WASTE"));
+    }
+
+    @Test void userSubtypeMustBeExactlyOneAndMatchExistingRole() {
+        assertEquals(3, count("`USER`"));
+        assertEquals(1, count("GENERATOR_USER")); assertEquals(2, count("STAFF_USER"));
+        boolean validSubtype = database.read(c -> new UserDAO(c).hasValidSubtype(new UserDAO(c).findById(admin.getUserId()).orElseThrow()));
+        assertTrue(validSubtype);
+        AuthService auth = new AuthService(database);
+        sql("DELETE FROM GENERATOR_USER WHERE user_id = ?", generatorUser.getUserId());
+        assertThrows(InvalidRequestException.class, () -> auth.login("generator", PASSWORD.toCharArray()));
+        assertThrows(InvalidRequestException.class, () -> requests.findByGenerator(generatorUser, generatorId));
+        sql("INSERT INTO STAFF_USER (user_id) VALUES (?)", generatorUser.getUserId());
+        assertThrows(InvalidRequestException.class, () -> auth.login("generator", PASSWORD.toCharArray()));
+        sql("INSERT INTO GENERATOR_USER (user_id) VALUES (?)", generatorUser.getUserId());
+        assertThrows(InvalidRequestException.class, () -> auth.login("generator", PASSWORD.toCharArray()));
+        assertThrows(InvalidRequestException.class, () -> requests.findByGenerator(generatorUser, generatorId));
+        sql("DELETE FROM STAFF_USER WHERE user_id = ?", generatorUser.getUserId());
+        assertEquals(generatorUser.getUserId(), auth.login("generator", PASSWORD.toCharArray()).getUserId());
+        assertThrows(DatabaseOperationException.class, () -> sql("INSERT INTO STAFF_USER (user_id) VALUES (?)", 999999L));
+        assertThrows(DatabaseOperationException.class, () -> sql("INSERT INTO GENERATOR_USER (user_id) VALUES (?)", generatorUser.getUserId()));
+        long before = count("`USER`");
+        Database failing = new Database(FailingConnections.onStatement(provider, "INSERT INTO STAFF_USER", 1));
+        Database original = database;
+        try {
+            database = failing;
+            assertThrows(DatabaseOperationException.class, () -> seedUser("failed-provision", ADMIN, null));
+        } finally { database = original; }
+        assertEquals(before, count("`USER`"));
+    }
+
+    @Test void nullableGeneratorSubtypeDetailsAndSevenDigitCoordinatesRoundTrip() {
+        GeneratorService service = new GeneratorService(database);
+        WasteGenerator base = new WasteGenerator(null, "Nullable details", "HOSPITAL", null, null, null,
+                "Required address", new BigDecimal("28.1234567"), new BigDecimal("77.1234567"), zoneId, true, null);
+        long hospital = service.create(admin, new GeneratorService.Profile(base, new Hospital(), null, null));
+        assertNull(service.findById(admin, hospital).orElseThrow().hospital().getAuthExpiryDate());
+        assertNull(service.findById(admin, hospital).orElseThrow().hospital().getLicenseNumber());
+        assertEquals(base.getLongitude(), service.findById(admin, hospital).orElseThrow().generator().getLongitude());
+        base.setGeneratorType("HOUSING_SOCIETY");
+        long housing = service.create(admin, new GeneratorService.Profile(base, null, new HousingSociety(), null));
+        assertNull(service.findById(admin, housing).orElseThrow().housingSociety().getNumberOfFlats());
+        base.setGeneratorType("FACTORY");
+        long factory = service.create(admin, new GeneratorService.Profile(base, null, null, new Factory()));
+        assertNull(service.findById(admin, factory).orElseThrow().factory().getConsentExpiryDate());
+        base.setAddress(null);
+        assertThrows(InvalidRequestException.class, () -> service.create(admin, new GeneratorService.Profile(base, null, null, new Factory())));
+    }
+
+    @Test void frozenDecimalLimitsRejectRoundingAndDistinguishVehicleCapacity() {
+        assertThrows(InvalidRequestException.class, () -> request(generatorId, categoryId, "1.001"));
+        assertThrows(InvalidRequestException.class, () -> request(generatorId, categoryId, "10000000000"));
+        long large = request(generatorId, categoryId, "9999999999.99");
+        assertEquals(new BigDecimal("9999999999.99"), requests.findWaste(admin, large).get(0).getEstimatedQuantity());
+        VehicleService vehicles = new VehicleService(database);
+        assertThrows(InvalidRequestException.class, () -> vehicles.create(admin, "TOO-LARGE", new BigDecimal("100000000"), null));
+        assertThrows(InvalidRequestException.class, () -> vehicles.create(admin, "TOO-PRECISE", new BigDecimal("1.001"), null));
+        long vehicle = vehicles.create(admin, "MAX-CAPACITY", new BigDecimal("99999999.99"), null);
+        assertEquals(new BigDecimal("99999999.99"), vehicles.findById(admin, vehicle).orElseThrow().getCapacityKg());
+        long request = request(generatorId, categoryId, "1.23");
+        long stop = firstStop(route(request));
+        assertThrows(InvalidRequestException.class, () -> complete(stop, Map.of(categoryId, new BigDecimal("1.001"))));
+        assertNull(requests.findWaste(admin, request).get(0).getActualQuantity());
+        complete(stop, Map.of(categoryId, new BigDecimal("1.23")));
+        assertEquals(new BigDecimal("1.23"), requests.findWaste(admin, request).get(0).getActualQuantity());
     }
 }

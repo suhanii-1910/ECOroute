@@ -18,6 +18,12 @@ public final class RoutePersistenceService {
     public RoutePersistenceService(Database database) { this.database = database; }
 
     public long save(UserSession session, long vehicleId, long zoneId, LocalDate date, List<PlannedStop> stops) {
+        return save(session, vehicleId, zoneId, date, stops, null);
+    }
+
+    /** The destination is supplied by the caller; null means not selected yet. */
+    public long save(UserSession session, long vehicleId, long zoneId, LocalDate date, List<PlannedStop> stops, Long siteId) {
+        if (siteId != null) Validation.id(siteId, "Disposal site");
         Validation.id(vehicleId, "Vehicle"); Validation.id(zoneId, "Zone");
         Validation.require(date != null && !date.isBefore(LocalDate.now()), "Route date must be today or later.");
         Validation.require(stops != null && !stops.isEmpty(), "A route needs at least one stop.");
@@ -33,11 +39,12 @@ public final class RoutePersistenceService {
         }
         return database.transaction(c -> {
             Access.staff(c, session);
+            if (siteId != null) Validation.require(new DisposalSiteDAO(c).findById(siteId).isPresent(), "Disposal site does not exist.");
             VehicleDAO vehicles = new VehicleDAO(c);
             Vehicle vehicle = vehicles.lockById(vehicleId)
                     .orElseThrow(() -> new VehicleUnavailableException("Vehicle does not exist."));
             if (!AVAILABLE.equals(vehicle.getStatus())) throw new VehicleUnavailableException("Vehicle is not available.");
-            Validation.quantity(vehicle.getCapacityKg(), true, "Vehicle capacity");
+            Validation.vehicleCapacity(vehicle.getCapacityKg());
             Validation.require(vehicle.getAssignedZoneId() == null || vehicle.getAssignedZoneId().equals(zoneId),
                     "Route zone differs from the vehicle home zone.");
             Validation.require(new ZoneDAO(c).findById(zoneId).isPresent(), "Zone does not exist.");
@@ -57,7 +64,7 @@ public final class RoutePersistenceService {
                 Validation.require(generator.isActive(), "Generator is inactive.");
                 Validation.require(generator.getZoneId().equals(zoneId), "Request belongs to another zone.");
                 Validation.require(!date.isBefore(request.getRequestDate().toLocalDate())
-                        && (request.getPreferredPickupDate() == null || !date.isBefore(request.getPreferredPickupDate())),
+                        && (request.getPreferredPickupDate() != null && !date.isBefore(request.getPreferredPickupDate())),
                         "Route is earlier than the request or preferred date.");
                 List<RequestWaste> lines = new RequestWasteDAO(c).findByRequest(id);
                 Validation.require(!lines.isEmpty(), "Request has no waste lines.");
@@ -68,7 +75,7 @@ public final class RoutePersistenceService {
                 }
             }
             Validation.require(total.compareTo(vehicle.getCapacityKg()) <= 0, "Estimated route weight exceeds vehicle capacity.");
-            long routeId = new RouteDAO(c).insert(new Route(null, vehicleId, zoneId, date, PLANNED, LocalDateTime.now()));
+            long routeId = new RouteDAO(c).insert(new Route(null, vehicleId, zoneId, date, PLANNED, LocalDateTime.now(), siteId));
             for (PlannedStop stop : plan) {
                 routeStops.insert(new RouteStop(null, routeId, stop.requestId(), stop.sequence(), PENDING, null, null));
                 requests.updateStatus(stop.requestId(), PENDING, ASSIGNED);

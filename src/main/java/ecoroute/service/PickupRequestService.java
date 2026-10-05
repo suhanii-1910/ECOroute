@@ -20,7 +20,8 @@ public final class PickupRequestService {
 
     public long create(UserSession session, long generatorId, LocalDate preferredDate, String remarks, List<WasteLine> lines) {
         Validation.id(generatorId, "Generator");
-        Validation.require(preferredDate == null || !preferredDate.isBefore(LocalDate.now()), "Preferred date cannot be in the past.");
+        Validation.require(preferredDate != null, "Preferred pickup date is required.");
+        Validation.require(!preferredDate.isBefore(LocalDate.now()), "Preferred date cannot be in the past.");
         Validation.require(lines != null && !lines.isEmpty(), "At least one waste line is required.");
         List<WasteLine> copy = new java.util.ArrayList<>(lines);
         Set<Long> categories = new HashSet<>();

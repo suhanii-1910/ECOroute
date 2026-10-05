@@ -33,7 +33,7 @@ public final class GeneratorSubtypeDAO {
 
     public Optional<HousingSociety> findHousingSociety(long generatorId) {
         return Jdbc.one(connection, "SELECT generator_id, registration_number, number_of_flats FROM `HOUSING_SOCIETY` WHERE generator_id = ?",
-                r -> new HousingSociety(Jdbc.nullableLong(r, "generator_id"), r.getString("registration_number"), r.getInt("number_of_flats")), generatorId);
+                r -> new HousingSociety(Jdbc.nullableLong(r, "generator_id"), r.getString("registration_number"), r.getObject("number_of_flats", Integer.class)), generatorId);
     }
 
     public void insert(Factory value) {

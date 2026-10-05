@@ -14,7 +14,7 @@ Swing → PickupRequestService → Database.transaction
 
 ## Models
 
-A model represents one relation: Zone, WasteGenerator, User, WasteCategory, Vehicle, PickupRequest, RequestWaste, Route or RouteStop. Private fields, constructors and getters/setters keep data access clear. Hospital, HousingSociety and Factory represent separate subtype tables; their key is the same generator_id as the parent.
+A model represents one relation: Zone, WasteGenerator, User, WasteCategory, Vehicle, PickupRequest, RequestWaste, Route, RouteStop or DisposalSite. Private fields, constructors and getters/setters keep data access clear. Hospital, HousingSociety and Factory represent separate subtype tables; their key is the same generator_id as the parent.
 
 Model objects are data holders; setters alone do not validate a workflow. Service methods validate user input and database state. A null Long ID means a new object. The database provisionally generates its key; DAO insert returns that key. We never choose a key with MAX(id)+1, which would race between users.
 
@@ -53,7 +53,7 @@ Try-with-resources closes statements and result sets even after an exception. A 
 
 REQUEST_WASTE uses `(request_id, category_id)` as its primary key. Each request may have multiple categories and each category may appear in many requests, but the same pair may occur only once. Updating actual quantity uses both key columns.
 
-ROUTE_STOP has a separate stop_id PK. Its request_id is also UNIQUE, which prevents one pickup from appearing on two stops. UNIQUE(route_id, stop_sequence) prevents duplicate positions within the same route.
+ROUTE_STOP has a separate stop_id PK. Its request_id is also UNIQUE, which prevents one pickup from appearing on two stops. The retained fixture UNIQUE(route_id, stop_sequence) prevents duplicate positions within the same route; the frozen document does not explicitly confirm it, so Member 1 must confirm this extra constraint.
 
 The request does not store zone_id. Its zone comes through its generator. Route total weights are sums of waste lines, not stored fields that could become stale.
 
@@ -109,3 +109,13 @@ The optional MySQL profile reruns smoke scenarios against a new empty disposable
 6. Show category DELETE failing for a referenced category.
 7. Explain how Member 3 passes a plan and Member 4 calls services.
 8. State the unverified production assumptions honestly.
+
+## What changed for the final frozen schema?
+
+“DISPOSAL_SITE stores a disposal destination's name, type, address, coordinates, capacity and status. ROUTE.site_id links a route to that site, or stays null when a destination has not been selected. I added a model and DAO to read sites, catalog service methods for the GUI, and a compatible route-save overload. Member 3 chooses the route and destination; my backend validates and saves what it receives.”
+
+“GENERATOR_USER and STAFF_USER are marker tables. They only contain the parent's user_id, so I kept marker checks in UserDAO instead of making empty duplicate model classes. Each user must have exactly one matching marker. Login still reads USER and verifies its password hash. Member 1 must provision the parent and marker together; authentication rejects inconsistent accounts.”
+
+“The preferred pickup date is now required. I aligned the fixture with INT IDs, two decimal places for kg and seven for coordinates, the new field lengths and required generator address. Subtype details can be null, so numberOfFlats uses Integer to preserve null. These changes affect models that carry data, DAOs that map SQL, and services that validate it. Reports still calculate route totals from waste lines; actual quantity stays null until collection.”
+
+The Java/JDBC migration is verified against the Member 2 H2 fixture. Member 1's executable MySQL schema, roles/statuses, generated IDs, hash format, constraints and routines still need confirmation. No nearest-neighbour or nearest-site algorithm was added.

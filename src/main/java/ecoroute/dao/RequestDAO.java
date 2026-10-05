@@ -35,6 +35,9 @@ public final class RequestDAO {
         if (value == null || value.getRequestId() != null) {
             throw new ecoroute.exception.InvalidRequestException("Insert requires a new record with a null generated ID.");
         }
+        if (value.getPreferredPickupDate() == null) {
+            throw new ecoroute.exception.InvalidRequestException("Preferred pickup date is required.");
+        }
         return Jdbc.insert(
                 connection,
                 "INSERT INTO `PICKUP_REQUEST` (generator_id, request_date, preferred_pickup_date, status, completion_date, remarks) VALUES (?, ?, ?, ?, ?, ?)",

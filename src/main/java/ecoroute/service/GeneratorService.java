@@ -24,20 +24,13 @@ public final class GeneratorService {
         switch (generator.getGeneratorType()) {
             case "HOSPITAL" -> {
                 Validation.require(count == 1 && profile.hospital() != null, "Hospital details are required.");
-                Validation.text(profile.hospital().getLicenseNumber(), "License number");
-                Validation.text(profile.hospital().getBiomedicalAuthNumber(), "Biomedical authorization");
-                Validation.require(profile.hospital().getAuthExpiryDate() != null, "Authorization expiry date is required.");
             }
             case "HOUSING_SOCIETY" -> {
                 Validation.require(count == 1 && profile.housingSociety() != null, "Housing society details are required.");
-                Validation.text(profile.housingSociety().getRegistrationNumber(), "Registration number");
-                Validation.require(profile.housingSociety().getNumberOfFlats() > 0, "Number of flats must be positive.");
+                Validation.require(profile.housingSociety().getNumberOfFlats() == null || profile.housingSociety().getNumberOfFlats() > 0, "Number of flats must be positive.");
             }
             case "FACTORY" -> {
                 Validation.require(count == 1 && profile.factory() != null, "Factory details are required.");
-                Validation.text(profile.factory().getIndustryType(), "Industry type");
-                Validation.text(profile.factory().getPollutionConsentNo(), "Pollution consent number");
-                Validation.require(profile.factory().getConsentExpiryDate() != null, "Consent expiry date is required.");
             }
             default -> Validation.require(count == 0, "This generator type has no subtype table.");
         }
@@ -109,12 +102,13 @@ public final class GeneratorService {
     }
     private static void validate(WasteGenerator g) {
         Validation.text(g.getName(), "Generator name");
+        Validation.text(g.getAddress(), "Generator address");
         Validation.require(g.getGeneratorType() != null && GENERATOR_TYPES.contains(g.getGeneratorType()), "Unknown generator type.");
         Validation.id(g.getZoneId(), "Zone");
         coordinate(g.getLatitude(), 90, "Latitude"); coordinate(g.getLongitude(), 180, "Longitude");
     }
     private static void coordinate(BigDecimal value, int maximum, String field) {
         if (value != null) Validation.require(value.abs().compareTo(BigDecimal.valueOf(maximum)) <= 0
-                && value.stripTrailingZeros().scale() <= 6, field + " must be within range and have at most six decimal places.");
+                && value.stripTrailingZeros().scale() <= 7, field + " must be within range and have at most seven decimal places.");
     }
 }

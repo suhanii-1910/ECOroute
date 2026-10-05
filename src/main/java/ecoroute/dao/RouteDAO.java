@@ -10,7 +10,7 @@ import java.util.Optional;
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
 public final class RouteDAO {
     private final Connection connection;
-    private static final String SELECT = "SELECT route_id, vehicle_id, zone_id, route_date, status, created_date FROM `ROUTE`";
+    private static final String SELECT = "SELECT route_id, vehicle_id, zone_id, route_date, status, created_date, site_id FROM `ROUTE`";
     public RouteDAO(Connection connection) { this.connection = connection; }
     private static Route map(ResultSet r) throws SQLException {
         return new Route(
@@ -19,7 +19,8 @@ public final class RouteDAO {
                 Jdbc.nullableLong(r, "zone_id"),
                 r.getObject("route_date", java.time.LocalDate.class),
                 r.getString("status"),
-                r.getObject("created_date", java.time.LocalDateTime.class));
+                r.getObject("created_date", java.time.LocalDateTime.class),
+                Jdbc.nullableLong(r, "site_id"));
     }
 
     public Optional<Route> findById(long id) {
@@ -36,12 +37,13 @@ public final class RouteDAO {
         }
         return Jdbc.insert(
                 connection,
-                "INSERT INTO `ROUTE` (vehicle_id, zone_id, route_date, status, created_date) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO `ROUTE` (vehicle_id, zone_id, route_date, status, created_date, site_id) VALUES (?, ?, ?, ?, ?, ?)",
                 value.getVehicleId(),
                 value.getZoneId(),
                 value.getRouteDate(),
                 value.getStatus(),
-                value.getCreatedDate());
+                value.getCreatedDate(),
+                value.getSiteId());
     }
 
     public void updateStatus(long id, String expected, String next) {

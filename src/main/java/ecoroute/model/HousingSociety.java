@@ -5,11 +5,11 @@ package ecoroute.model;
 public class HousingSociety {
     private Long generatorId;
     private String registrationNumber;
-    private int numberOfFlats;
+    private Integer numberOfFlats;
 
     public HousingSociety() {}
 
-    public HousingSociety(Long generatorId, String registrationNumber, int numberOfFlats) {
+    public HousingSociety(Long generatorId, String registrationNumber, Integer numberOfFlats) {
         this.generatorId = generatorId;
         this.registrationNumber = registrationNumber;
         this.numberOfFlats = numberOfFlats;
@@ -21,8 +21,8 @@ public class HousingSociety {
     public String getRegistrationNumber() { return registrationNumber; }
     public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
 
-    public int getNumberOfFlats() { return numberOfFlats; }
-    public void setNumberOfFlats(int numberOfFlats) { this.numberOfFlats = numberOfFlats; }
+    public Integer getNumberOfFlats() { return numberOfFlats; }
+    public void setNumberOfFlats(Integer numberOfFlats) { this.numberOfFlats = numberOfFlats; }
 
     @Override
     public String toString() {

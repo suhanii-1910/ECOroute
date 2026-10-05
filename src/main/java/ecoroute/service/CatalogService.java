@@ -4,9 +4,10 @@ import ecoroute.dao.*;
 import ecoroute.db.Database;
 import ecoroute.model.*;
 import java.util.List;
+import java.util.Optional;
 import static ecoroute.db.DatabaseContract.*;
 
-/** GUI-facing zone/category maintenance; deletion remains protected by database foreign keys. */
+/** GUI-facing catalogs and zone/category maintenance; deletion is protected by foreign keys. */
 public final class CatalogService {
     private final Database database;
     public CatalogService(Database database) { this.database = database; }
@@ -15,6 +16,17 @@ public final class CatalogService {
     }
     public List<WasteCategory> categories(UserSession session) {
         return database.read(c -> { Access.current(c, session); return new CategoryDAO(c).findAll(); });
+    }
+    public List<DisposalSite> disposalSites(UserSession session) {
+        return database.read(c -> { Access.staff(c, session); return new DisposalSiteDAO(c).findAll(); });
+    }
+    public Optional<DisposalSite> disposalSite(UserSession session, long siteId) {
+        Validation.id(siteId, "Disposal site");
+        return database.read(c -> { Access.staff(c, session); return new DisposalSiteDAO(c).findById(siteId); });
+    }
+    public List<DisposalSite> disposalSitesByStatus(UserSession session, String status) {
+        Validation.text(status, "Disposal site status");
+        return database.read(c -> { Access.staff(c, session); return new DisposalSiteDAO(c).findByStatus(status); });
     }
     public long saveZone(UserSession session, Zone zone) {
         Validation.require(zone != null, "Zone is required."); Validation.text(zone.getZoneName(), "Zone name");
