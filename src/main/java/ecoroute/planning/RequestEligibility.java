@@ -62,7 +62,7 @@ public final class RequestEligibility {
         if (request == null) return UnassignedRequest.INVALID_QUANTITY;
 
         if (!PENDING.equalsIgnoreCase(request.getStatus())) {
-            return UnassignedRequest.DATE_NOT_DUE;
+            return UnassignedRequest.NOT_PENDING;
         }
         if (request.getTotalEstimatedQuantity().signum() <= 0) {
             return UnassignedRequest.INVALID_QUANTITY;

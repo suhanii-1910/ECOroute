@@ -29,6 +29,19 @@ public final class UnassignedRequest {
     public static final String FLEET_CAPACITY_FULL     = "FLEET_CAPACITY_FULL";
     public static final String INVALID_QUANTITY        = "INVALID_QUANTITY";
     public static final String DATE_NOT_DUE            = "DATE_NOT_DUE";
+    /**
+     * The request is not in PENDING status - typically CANCELLED, or already
+     * ASSIGNED or COMPLETED.
+     *
+     * Added in Phase 7. Until then a non-PENDING request was reported as
+     * DATE_NOT_DUE, which produced the self-contradicting line
+     * "[DATE_NOT_DUE] Request status is CANCELLED, not PENDING". The message
+     * was right and the code was wrong, and because the UI is meant to group
+     * and colour rows BY CODE, a cancelled request would have been filed under
+     * "not due yet" - implying it would come back tomorrow, when in fact it is
+     * never coming back. Two genuinely different outcomes need two codes.
+     */
+    public static final String NOT_PENDING             = "NOT_PENDING";
 
     private final RequestView request;
     private final String reasonCode;
