@@ -10,7 +10,7 @@ import java.util.Optional;
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
 public final class VehicleDAO {
     private final Connection connection;
-    private static final String SELECT = "SELECT vehicle_id, vehicle_number, capacity_kg, status, assigned_zone_id, created_date FROM `VEHICLE`";
+    private static final String SELECT = "SELECT vehicle_id, vehicle_number, capacity_kg, status, assigned_zone_id FROM `VEHICLE`";
     public VehicleDAO(Connection connection) { this.connection = connection; }
     private static Vehicle map(ResultSet r) throws SQLException {
         return new Vehicle(
@@ -18,8 +18,7 @@ public final class VehicleDAO {
                 r.getString("vehicle_number"),
                 r.getBigDecimal("capacity_kg"),
                 r.getString("status"),
-                Jdbc.nullableLong(r, "assigned_zone_id"),
-                r.getObject("created_date", java.time.LocalDateTime.class));
+                Jdbc.nullableLong(r, "assigned_zone_id"));
     }
 
     public Optional<Vehicle> findById(long id) {
@@ -40,12 +39,11 @@ public final class VehicleDAO {
         }
         return Jdbc.insert(
                 connection,
-                "INSERT INTO `VEHICLE` (vehicle_number, capacity_kg, status, assigned_zone_id, created_date) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO `VEHICLE` (vehicle_number, capacity_kg, status, assigned_zone_id) VALUES (?, ?, ?, ?)",
                 value.getVehicleNumber(),
                 value.getCapacityKg(),
                 value.getStatus(),
-                value.getAssignedZoneId(),
-                value.getCreatedDate());
+                value.getAssignedZoneId());
     }
 
     public List<Vehicle> findAvailable() {

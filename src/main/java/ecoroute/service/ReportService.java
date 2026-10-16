@@ -9,7 +9,7 @@ public final class ReportService {
     private final Database database;
     public ReportService(Database database) { this.database = database; }
     private static void dates(LocalDate from, LocalDate to) {
-        Validation.require(from != null && to != null && from.isBefore(to), "Use a nonempty date interval [from, to).");
+        Validation.require(from != null && to != null && !from.isAfter(to), "Use a date interval [from, to] where from <= to.");
     }
     public List<ReportDAO.CollectionVolume> collectionVolume(UserSession session, LocalDate from, LocalDate to) {
         dates(from, to); return database.read(c -> { Access.staff(c, session); return new ReportDAO(c).collectionVolume(from, to); });

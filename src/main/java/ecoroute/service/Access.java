@@ -22,7 +22,13 @@ final class Access {
     }
     static void staff(Connection connection, UserSession session) {
         User user = current(connection, session);
-        Validation.require(ADMIN.equals(user.getRole()) || OPERATOR.equals(user.getRole()), "Staff access is required.");
+        Validation.require(ADMIN.equals(user.getRole()) || OPERATOR.equals(user.getRole()) || DRIVER.equals(user.getRole()),
+                "Staff access is required.");
+    }
+    static void operatorOrAdmin(Connection connection, UserSession session) {
+        User user = current(connection, session);
+        Validation.require(ADMIN.equals(user.getRole()) || OPERATOR.equals(user.getRole()),
+                "Operator or admin access is required.");
     }
     static void admin(Connection connection, UserSession session) {
         Validation.require(ADMIN.equals(current(connection, session).getRole()), "Admin access is required.");
@@ -31,5 +37,9 @@ final class Access {
         User user = current(connection, session);
         Validation.require(!GENERATOR.equals(user.getRole()) || Objects.equals(user.getGeneratorId(), generatorId),
                 "You cannot access another generator's requests.");
+    }
+    static void driver(Connection connection, UserSession session) {
+        User user = current(connection, session);
+        Validation.require(DRIVER.equals(user.getRole()) || ADMIN.equals(user.getRole()), "Driver access is required.");
     }
 }

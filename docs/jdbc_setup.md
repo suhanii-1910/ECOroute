@@ -4,7 +4,7 @@
 
 - JDK 17+ and Maven 3.9.x. The compiler uses `maven.compiler.release=17` regardless of Maven's runtime JDK.
 - Maven Central access for first dependency download. Pinned dependencies: MySQL Connector/J 9.2.0, JUnit Jupiter 5.11.4, H2 2.3.232 (test only). Plugin versions are pinned in pom.xml.
-- For actual integration: a team-managed MySQL server (provisional fixture targets MySQL 8.0.16+ with enforced CHECK constraints and InnoDB), agreed Member 1 DDL and credentials.
+- For actual integration: a team-managed MySQL server (Member 2 frozen-design fixture targets MySQL 8.0.16+ with enforced CHECK constraints and InnoDB), agreed Member 1 DDL and credentials.
 
 Check locally:
 
@@ -75,7 +75,7 @@ mvn -Dtest=DatabaseTransactionTest,SecurityAndConfigurationTest test
 | Deadlock or lock timeout | The transaction is rolled back where possible. Refresh and retry the entire operation, not just the failed DAO call. |
 | Failed commit/connection loss | Commit outcome may be uncertain; read current state before retrying a create operation. |
 | Date shift or truncation | Agree on DATETIME/DATE mapping and one business time zone; confirm precision and VARCHAR lengths with Member 1. |
-| Login fails with existing data | Confirm PBKDF2 format, role association and active flag. No fallback to plaintext or unknown hashes is implemented. |
+| Login fails with existing data | Confirm PBKDF2 format, role association, active flag and exactly one matching GENERATOR_USER/STAFF_USER marker. No fallback to plaintext or unknown hashes is implemented. |
 | MySQL profile refuses schema | Use a new empty disposable schema with the required prefix and acknowledgment. |
 
 ## Verification in this workspace

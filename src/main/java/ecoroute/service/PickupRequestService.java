@@ -18,9 +18,10 @@ public final class PickupRequestService {
     private final Database database;
     public PickupRequestService(Database database) { this.database = database; }
 
-    public long create(UserSession session, long generatorId, LocalDate preferredDate, String remarks, List<WasteLine> lines) {
+    public long create(UserSession session, long generatorId, LocalDate preferredDate, String notes, List<WasteLine> lines) {
         Validation.id(generatorId, "Generator");
-        Validation.require(preferredDate == null || !preferredDate.isBefore(LocalDate.now()), "Preferred date cannot be in the past.");
+        Validation.require(preferredDate != null, "Preferred pickup date is required.");
+        Validation.require(!preferredDate.isBefore(LocalDate.now()), "Preferred date cannot be in the past.");
         Validation.require(lines != null && !lines.isEmpty(), "At least one waste line is required.");
         List<WasteLine> copy = new java.util.ArrayList<>(lines);
         Set<Long> categories = new HashSet<>();
@@ -36,7 +37,7 @@ public final class PickupRequestService {
                     .orElseThrow(() -> new InvalidRequestException("Generator does not exist."));
             Validation.require(generator.isActive(), "Generator is inactive.");
             long requestId = new RequestDAO(c).insert(new PickupRequest(null, generatorId, LocalDateTime.now(),
-                    preferredDate, PENDING, null, remarks));
+                    preferredDate, PENDING, null, notes));
             RequestWasteDAO waste = new RequestWasteDAO(c);
             for (WasteLine line : copy) {
                 Validation.require(new CategoryDAO(c).findById(line.categoryId()).isPresent(), "Category does not exist.");

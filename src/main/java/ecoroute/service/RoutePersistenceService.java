@@ -32,18 +32,18 @@ public final class RoutePersistenceService {
             previous = stop.sequence();
         }
         return database.transaction(c -> {
-            Access.staff(c, session);
+            Access.operatorOrAdmin(c, session);
             VehicleDAO vehicles = new VehicleDAO(c);
             Vehicle vehicle = vehicles.lockById(vehicleId)
                     .orElseThrow(() -> new VehicleUnavailableException("Vehicle does not exist."));
             if (!AVAILABLE.equals(vehicle.getStatus())) throw new VehicleUnavailableException("Vehicle is not available.");
-            Validation.quantity(vehicle.getCapacityKg(), true, "Vehicle capacity");
+            if (new RouteDAO(c).hasActiveRoute(vehicleId)) throw new VehicleUnavailableException("Vehicle already has an active route.");
+            Validation.vehicleCapacity(vehicle.getCapacityKg());
             Validation.require(vehicle.getAssignedZoneId() == null || vehicle.getAssignedZoneId().equals(zoneId),
                     "Route zone differs from the vehicle home zone.");
             Validation.require(new ZoneDAO(c).findById(zoneId).isPresent(), "Zone does not exist.");
             RequestDAO requests = new RequestDAO(c);
             RouteStopDAO routeStops = new RouteStopDAO(c);
-            // All assignments lock requests in ID order, regardless of the supplied route order.
             Map<Long, PickupRequest> locked = new HashMap<>();
             for (long id : requestIds) locked.put(id, requests.lockById(id)
                     .orElseThrow(() -> new InvalidRequestException("A requested pickup does not exist.")));
@@ -57,7 +57,7 @@ public final class RoutePersistenceService {
                 Validation.require(generator.isActive(), "Generator is inactive.");
                 Validation.require(generator.getZoneId().equals(zoneId), "Request belongs to another zone.");
                 Validation.require(!date.isBefore(request.getRequestDate().toLocalDate())
-                        && (request.getPreferredPickupDate() == null || !date.isBefore(request.getPreferredPickupDate())),
+                        && (request.getPreferredPickupDate() != null && !date.isBefore(request.getPreferredPickupDate())),
                         "Route is earlier than the request or preferred date.");
                 List<RequestWaste> lines = new RequestWasteDAO(c).findByRequest(id);
                 Validation.require(!lines.isEmpty(), "Request has no waste lines.");
@@ -68,12 +68,15 @@ public final class RoutePersistenceService {
                 }
             }
             Validation.require(total.compareTo(vehicle.getCapacityKg()) <= 0, "Estimated route weight exceeds vehicle capacity.");
+            // Claim all requests first: this is the serialization point for concurrent saves.
+            // Jdbc.change() throws DatabaseOperationException if 0 rows affected (status no longer PENDING).
+            for (PlannedStop stop : plan) {
+                requests.updateStatus(stop.requestId(), PENDING, ASSIGNED);
+            }
             long routeId = new RouteDAO(c).insert(new Route(null, vehicleId, zoneId, date, PLANNED, LocalDateTime.now()));
             for (PlannedStop stop : plan) {
                 routeStops.insert(new RouteStop(null, routeId, stop.requestId(), stop.sequence(), PENDING, null, null));
-                requests.updateStatus(stop.requestId(), PENDING, ASSIGNED);
             }
-            vehicles.updateStatus(vehicleId, AVAILABLE, IN_USE);
             return routeId;
         });
     }
@@ -86,6 +89,9 @@ public final class RoutePersistenceService {
     }
     public List<Route> findByZone(UserSession session, long id) {
         return database.read(c -> { Access.staff(c, session); return new RouteDAO(c).findByZone(id); });
+    }
+    public List<Route> findByDate(UserSession session, LocalDate date) {
+        return database.read(c -> { Access.staff(c, session); return new RouteDAO(c).findByDate(date); });
     }
     public List<RouteStop> findStops(UserSession session, long routeId) {
         return database.read(c -> { Access.staff(c, session); return new RouteStopDAO(c).findByRouteOrdered(routeId); });

@@ -8,21 +8,22 @@ public class PickupRequest {
     private Long requestId;
     private Long generatorId;
     private LocalDateTime requestDate;
+    // Required when persisted; service and DAO reject a missing date.
     private LocalDate preferredPickupDate;
     private String status;
     private LocalDateTime completionDate;
-    private String remarks;
+    private String notes;
 
     public PickupRequest() {}
 
-    public PickupRequest(Long requestId, Long generatorId, LocalDateTime requestDate, LocalDate preferredPickupDate, String status, LocalDateTime completionDate, String remarks) {
+    public PickupRequest(Long requestId, Long generatorId, LocalDateTime requestDate, LocalDate preferredPickupDate, String status, LocalDateTime completionDate, String notes) {
         this.requestId = requestId;
         this.generatorId = generatorId;
         this.requestDate = requestDate;
         this.preferredPickupDate = preferredPickupDate;
         this.status = status;
         this.completionDate = completionDate;
-        this.remarks = remarks;
+        this.notes = notes;
     }
 
     public Long getRequestId() { return requestId; }
@@ -43,8 +44,8 @@ public class PickupRequest {
     public LocalDateTime getCompletionDate() { return completionDate; }
     public void setCompletionDate(LocalDateTime completionDate) { this.completionDate = completionDate; }
 
-    public String getRemarks() { return remarks; }
-    public void setRemarks(String remarks) { this.remarks = remarks; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 
     @Override
     public String toString() {

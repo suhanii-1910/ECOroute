@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 /** JDBC data holder. A null surrogate ID means it has not been inserted yet. */
 public class WasteGenerator {
     private Long generatorId;
-    private String name;
+    private String generatorName;
     private String generatorType;
     private String contactPerson;
     private String phone;
@@ -20,9 +20,11 @@ public class WasteGenerator {
 
     public WasteGenerator() {}
 
-    public WasteGenerator(Long generatorId, String name, String generatorType, String contactPerson, String phone, String email, String address, BigDecimal latitude, BigDecimal longitude, Long zoneId, boolean active, LocalDateTime createdDate) {
+    public WasteGenerator(Long generatorId, String generatorName, String generatorType, String contactPerson,
+                          String phone, String email, String address, BigDecimal latitude, BigDecimal longitude,
+                          Long zoneId, boolean active, LocalDateTime createdDate) {
         this.generatorId = generatorId;
-        this.name = name;
+        this.generatorName = generatorName;
         this.generatorType = generatorType;
         this.contactPerson = contactPerson;
         this.phone = phone;
@@ -38,8 +40,8 @@ public class WasteGenerator {
     public Long getGeneratorId() { return generatorId; }
     public void setGeneratorId(Long generatorId) { this.generatorId = generatorId; }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public String getGeneratorName() { return generatorName; }
+    public void setGeneratorName(String generatorName) { this.generatorName = generatorName; }
 
     public String getGeneratorType() { return generatorType; }
     public void setGeneratorType(String generatorType) { this.generatorType = generatorType; }
@@ -72,7 +74,5 @@ public class WasteGenerator {
     public void setCreatedDate(LocalDateTime createdDate) { this.createdDate = createdDate; }
 
     @Override
-    public String toString() {
-        return "WasteGenerator{" + generatorId + ", " + name + "}";
-    }
+    public String toString() { return "WasteGenerator{" + generatorId + ", " + generatorName + "}"; }
 }

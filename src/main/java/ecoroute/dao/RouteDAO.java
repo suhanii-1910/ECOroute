@@ -55,4 +55,18 @@ public final class RouteDAO {
     public List<Route> findByZone(long id) {
         return Jdbc.list(connection, SELECT + " WHERE zone_id = ? ORDER BY route_date, route_id", RouteDAO::map, id);
     }
+
+    public List<Route> findByDate(java.time.LocalDate date) {
+        return Jdbc.list(connection, SELECT + " WHERE route_date = ? ORDER BY route_id", RouteDAO::map, date);
+    }
+
+    public List<Route> findByStatus(String status) {
+        return Jdbc.list(connection, SELECT + " WHERE status = ? ORDER BY route_date, route_id", RouteDAO::map, status);
+    }
+
+    public boolean hasActiveRoute(long vehicleId) {
+        return Jdbc.one(connection,
+                "SELECT route_id FROM `ROUTE` WHERE vehicle_id = ? AND status IN ('PLANNED','IN_PROGRESS') LIMIT 1",
+                r -> r.getLong("route_id"), vehicleId).isPresent();
+    }
 }
