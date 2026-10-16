@@ -26,9 +26,13 @@ public class RequestWaste {
 
     public BigDecimal getEstimatedQuantity() { return estimatedQuantity; }
     public void setEstimatedQuantity(BigDecimal estimatedQuantity) { this.estimatedQuantity = estimatedQuantity; }
+    public BigDecimal getEstimatedQuantityKg() { return estimatedQuantity; }
+    public void setEstimatedQuantityKg(BigDecimal estimatedQuantity) { this.estimatedQuantity = estimatedQuantity; }
 
     public BigDecimal getActualQuantity() { return actualQuantity; }
     public void setActualQuantity(BigDecimal actualQuantity) { this.actualQuantity = actualQuantity; }
+    public BigDecimal getActualQuantityKg() { return actualQuantity; }
+    public void setActualQuantityKg(BigDecimal actualQuantity) { this.actualQuantity = actualQuantity; }
 
     @Override
     public String toString() {

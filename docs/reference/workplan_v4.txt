@@ -1,0 +1,449 @@
+ECOroute — Member 1 Work Plan (v3)
+DBMS Implementation Lead — MySQL schema, constraints, SQL, views, procedures, functions, triggers and DBMS evidence
+Version 3 — aligned to the corrected 18-relation relational schema and the approved ER/EER diagrams
+
+References
+ECOroute — Java + DBMS Project Study & Feasibility Brief: project scope, workflow, Java architecture, algorithms, DBMS requirements, priorities and demonstration.
+EcoRoute: Relational Schema (corrected, 18 relations; corrections edition): exact relations, columns, CHECK lists, keys, delete rules, integrity rules beyond declarative constraints and derived views.
+EcoRoute EER and ER diagrams (final approved solution): entities, relationships, cardinality and participation, the two disjoint/partial specializations and the disposal lifecycle (facility, accepted waste, disposal record).
+Mini Project Guidelines 2023–27: required evaluation sequence from requirements through ER/EER, relational schema, anomalies, functional dependencies, normalization, MySQL/Oracle implementation, queries/functions/procedures/triggers, demonstration and individual contribution.
+Java Lab Manual: assignments covering OOP, abstraction/interfaces/packages/file handling, exceptions, Swing/events, JDBC SELECT/CRUD/PreparedStatement/ResultSet/GUI+JDBC, Thread/Runnable, sockets, RMI and JSP.
+What changed since the original plan
+The original plan covered 12 relations. The corrected schema has 18 and replaces the earlier disposal-site design, so the DBMS work changes in the areas below. Version 2 of this plan (15 relations, DISPOSAL_SITE, user subtype tables) is superseded.
+Area
+Original plan (v1)
+Updated design (corrected schema)
+Number of relations
+12 (9 base + HOSPITAL, HOUSING_SOCIETY, FACTORY).
+18: 9 core + 3 disposal (DISPOSAL_FACILITY, FACILITY_ACCEPTED_WASTE, DISPOSAL_RECORD) + 6 subtypes (HOSPITAL, HOUSING_SOCIETY, FACTORY, RECYCLING_PLANT, PROCESSING_PLANT, HAZARDOUS_DISPOSAL_SITE).
+Disposal flow
+Not covered.
+DISPOSAL_FACILITY (facility_type, capacity_tonnes_per_day, zone_id), FACILITY_ACCEPTED_WASTE (facility × category matrix) and DISPOSAL_RECORD (route × facility unloading event with generated net weight). There is no ROUTE.site_id.
+Users
+USER as a single table.
+Still one USER table (no GENERATOR_USER / STAFF_USER tables). role is CHECK-limited to GENERATOR, ADMIN, OPERATOR, DRIVER, and generator_id is required exactly when role = GENERATOR.
+Waste category
+category_id, category_name UK, description.
+Adds hazard_level (LOW, MEDIUM, HIGH, BIOMEDICAL; default LOW).
+Column rules
+Types only suggested.
+AUTO_INCREMENT keys, CHECK lists for every status/type column, defaults, TEXT for long text and explicit NULL / NOT NULL on every column.
+Constraints
+UNIQUE(route_id, stop_sequence) assumed; delete rules proposed.
+Both are now fixed in the schema: UNIQUE(route_id, stop_sequence) and a full delete-rule table.
+Derived values
+Route totals derived.
+Route totals stay derived through V_ROUTE_WEIGHT; DISPOSAL_RECORD.net_disposed_weight_kg is a generated column (gross − tare).
+Rules beyond constraints
+None.
+Subtype consistency triggers, authorized-disposal and daily-capacity checks (inside sp_record_disposal); capacity_tonnes_per_day is in tonnes, everything else in kg.
+Workflow
+Ended at reports.
+Adds a disposal step that records the unloading event in DISPOSAL_RECORD.
+Build order
+Ad hoc.
+ZONE, WASTE_CATEGORY → generators + subtypes → USER → VEHICLE → facilities + subtypes + accepted waste → ROUTE → PICKUP_REQUEST → ROUTE_STOP → REQUEST_WASTE → DISPOSAL_RECORD.
+
+1. Common team rules
+Treat the corrected relational schema as the database source of truth. Do not silently rename tables/columns or alter key relationships.
+The core project is an academic prototype. GPS/live tracking, Google Maps, AI/ML, IoT weighing, mobile apps, commercial route optimization and real-time fleet tracking remain outside the core scope.
+Vehicle assignment is a greedy capacity-constrained heuristic; nearest-neighbor is a routing heuristic; disposal-facility selection is a nearest-suitable-facility heuristic (active, accepts every category on the route, enough daily capacity). None is to be described as globally optimal.
+Finish the P0 end-to-end workflow before peripheral syllabus demonstrations.
+Use Git with small descriptive commits. Coordinate before changing shared classes, interfaces or SQL.
+Every member must understand and be able to explain their own contribution during individual evaluation.
+2. Final database baseline
+The corrected design contains 18 relations: ZONE, WASTE_GENERATOR, USER, WASTE_CATEGORY, VEHICLE, PICKUP_REQUEST, REQUEST_WASTE, ROUTE, ROUTE_STOP; DISPOSAL_FACILITY, FACILITY_ACCEPTED_WASTE, DISPOSAL_RECORD; and the subtypes HOSPITAL, HOUSING_SOCIETY, FACTORY, RECYCLING_PLANT, PROCESSING_PLANT, HAZARDOUS_DISPOSAL_SITE.
+Area
+Rule to preserve
+Generator zone
+WASTE_GENERATOR.zone_id is a mandatory FK to ZONE (RESTRICT).
+Request zone
+PICKUP_REQUEST has no zone_id; derive it through generator → zone (V_PICKUP_REQUEST_ZONE).
+Users
+One USER table; username UNIQUE; role CHECK (GENERATOR, ADMIN, OPERATOR, DRIVER); generator_id is NULL unless role = GENERATOR, in which case it is required.
+Route
+ROUTE references one VEHICLE and one ZONE (both NOT NULL, RESTRICT). status is CHECK-limited (PLANNED, IN_PROGRESS, DISPATCHED_TO_DISPOSAL, COMPLETED, CANCELLED). Route total weights are derived, never stored.
+Route stop
+ROUTE_STOP has stop_id PK, request_id NOT NULL UNIQUE (RESTRICT) and UNIQUE(route_id, stop_sequence); route_id is CASCADE.
+Request waste
+REQUEST_WASTE has composite PK (request_id, category_id), estimated_quantity NOT NULL and nullable actual_quantity; request_id CASCADE, category_id RESTRICT.
+Waste category
+category_name UNIQUE; hazard_level NOT NULL, default LOW, CHECK (LOW, MEDIUM, HIGH, BIOMEDICAL).
+Generator subtypes
+HOSPITAL, HOUSING_SOCIETY and FACTORY use generator_id as PK/FK (CASCADE); disjoint and partial; generator_type is the discriminator.
+Disposal facility
+DISPOSAL_FACILITY: facility_name UNIQUE; facility_type CHECK (RECYCLING_PLANT, PROCESSING_PLANT, HAZARDOUS_DISPOSAL_SITE, LANDFILL); zone_id NOT NULL (RESTRICT); capacity_tonnes_per_day is in tonnes.
+Facility subtypes
+RECYCLING_PLANT, PROCESSING_PLANT and HAZARDOUS_DISPOSAL_SITE use facility_id as PK/FK (CASCADE); disjoint and partial; LANDFILL has no subtype table.
+Accepted waste
+FACILITY_ACCEPTED_WASTE has composite PK (facility_id, category_id); facility_id CASCADE, category_id RESTRICT.
+Disposal record
+DISPOSAL_RECORD: route_id and facility_id RESTRICT; receipt_number UNIQUE; net_disposed_weight_kg generated (gross − tare); status CHECK (VERIFIED, DISCREPANCY, REJECTED).
+Vehicle home zone
+VEHICLE.assigned_zone_id is nullable and uses SET NULL on zone deletion.
+Delete behavior
+RESTRICT by default. CASCADE: ROUTE_STOP.route_id, REQUEST_WASTE.request_id, FACILITY_ACCEPTED_WASTE.facility_id and all six subtype FKs. SET NULL: VEHICLE.assigned_zone_id only.
+Units
+All weights and quantities are kg, except DISPOSAL_FACILITY.capacity_tonnes_per_day (tonnes per day; multiply by 1000 to compare).
+Participation
+A route should have at least one ROUTE_STOP and a pickup request at least one REQUEST_WASTE row; this is enforced in application/procedure logic, not by foreign keys.
+Views
+V_ROUTE_WEIGHT and V_PICKUP_REQUEST_ZONE are derived views, not base tables.
+
+3. End-to-end workflow
+Create a pickup request with category, estimated quantity and preferred date.
+Persist the request in MySQL through JDBC.
+Review pending requests.
+Group requests by predefined zone.
+Run greedy capacity-constrained vehicle assignment.
+Generate route stops and nearest-neighbor sequence.
+Collection staff views the route and completes stops.
+Actual quantity and statuses are updated.
+When the stops are complete or the vehicle is full, select the nearest suitable DISPOSAL_FACILITY (active, accepts every category on the route, enough daily capacity) and record the unloading through sp_record_disposal, which creates the DISPOSAL_RECORD with gross weight, tare weight and receipt number; net weight is generated.
+Reports show collection volume, utilization, status, estimated-vs-actual results and disposal records per facility.
+Demonstrate SQL queries, joins, aggregates, procedures, functions, triggers and relevant Java syllabus components.
+4. Your exact responsibility
+Own the complete database implementation. Convert the corrected relational schema (18 relations) into a reproducible MySQL 8.0.16+ database and prepare the DBMS evidence required by the mini-project guidelines.
+Work package
+Deliverable
+Dependency
+Database creation
+Database + table scripts for all 18 relations in dependency order
+Corrected schema
+Integrity
+PK/FK/UNIQUE/NOT NULL/CHECK lists/defaults/delete rules, role–generator CHECK, generated net-weight column
+Corrected schema
+Seed data
+Zones, categories (with hazard_level), generators + subtype rows, users of each role, vehicles, facilities + subtype rows + accepted waste, requests, request-category rows, routes, disposal records
+Tables
+Views
+V_ROUTE_WEIGHT and V_PICKUP_REQUEST_ZONE
+Tables + data
+SQL
+SELECT, joins (incl. disposal), aggregates, GROUP BY/HAVING and reports
+Seed data
+Procedures
+ECOroute-specific procedures, including sp_record_disposal
+Tables
+Functions
+ECOroute-specific derived calculation
+Tables/views
+Triggers
+Subtype consistency triggers (schema section 5), at least one fully documented
+Business rule
+Evidence
+Screenshots/results for every DBMS feature
+Working DB
+Handoff
+schema.sql, seed.sql, views.sql, routines.sql, README
+All above
+
+5. Exact database procedure
+	•	Create the MySQL database (MySQL 8.0.16 or later so CHECK constraints are enforced) and agree the name/configuration with the team.
+	•	Create ZONE and WASTE_CATEGORY first (zone_name and category_name UNIQUE; hazard_level NOT NULL DEFAULT LOW with its CHECK).
+	•	Create WASTE_GENERATOR with mandatory zone_id FK and generator_type with its CHECK list.
+	•	Create HOSPITAL, HOUSING_SOCIETY and FACTORY after WASTE_GENERATOR, each with generator_id as PK/FK ON DELETE CASCADE.
+	•	Create USER (quoted as `USER`) with UNIQUE username, role CHECK, nullable generator_id FK and the role/generator_id CHECK.
+	•	Create VEHICLE with UNIQUE vehicle_number, status CHECK and nullable assigned_zone_id FK (SET NULL).
+	•	Create DISPOSAL_FACILITY (zone_id FK RESTRICT, facility_type CHECK, UNIQUE facility_name), then RECYCLING_PLANT, PROCESSING_PLANT and HAZARDOUS_DISPOSAL_SITE (PK/FK CASCADE), then FACILITY_ACCEPTED_WASTE with composite PK.
+	•	Create ROUTE after VEHICLE and ZONE; vehicle_id and zone_id NOT NULL; status CHECK; no stored weight columns.
+	•	Create PICKUP_REQUEST after WASTE_GENERATOR with status CHECK and default PENDING.
+	•	Create ROUTE_STOP after ROUTE and PICKUP_REQUEST; request_id NOT NULL UNIQUE, UNIQUE(route_id, stop_sequence), route_id CASCADE.
+	•	Create REQUEST_WASTE after PICKUP_REQUEST and WASTE_CATEGORY with composite PK (request_id, category_id).
+	•	Create DISPOSAL_RECORD after ROUTE and DISPOSAL_FACILITY with the generated net_disposed_weight_kg column, UNIQUE receipt_number and RESTRICT FKs.
+	•	Insert representative seed data for every table, including one user per role, one facility per subtype plus a LANDFILL, accepted-waste rows and disposal records.
+	•	Create V_ROUTE_WEIGHT from REQUEST_WASTE through ROUTE_STOP and V_PICKUP_REQUEST_ZONE through generator → zone.
+	•	Prepare JOIN, aggregate, GROUP BY/HAVING, disposal and estimated-vs-actual report queries.
+	•	Create the procedures: a zone collection summary or controlled status update, and sp_record_disposal with its authorization and capacity checks.
+	•	Create a function such as route utilization percentage; guard against missing vehicle/zero capacity.
+	•	Create the subtype consistency triggers, documenting event, timing, rule and expected result for each.
+	•	Rebuild the database from a clean script and confirm it works without manual fixes.
+6. Required SQL set
+Category
+ECOroute query
+Purpose
+SELECT
+Pending requests with generator and status
+Basic retrieval
+JOIN
+Request + generator + zone + category
+Relationship proof
+JOIN
+Route + vehicle + zone
+Operational route view
+JOIN
+Route + disposal record + facility
+Disposal lifecycle
+JOIN
+Generator + subtype (HOSPITAL / HOUSING_SOCIETY / FACTORY)
+Specialization proof
+JOIN
+Facility + accepted categories + category
+Authorization matrix
+SUM
+Estimated quantity by zone/category
+Collection volume
+SUM
+Estimated quantity by hazard_level
+Hazardous-waste volume
+SUM
+net_disposed_weight_kg by facility
+Disposal volume
+COUNT
+Requests by status/category
+Operational counts
+COUNT
+Disposal records by facility and status
+Disposal verification
+AVG
+Average estimated quantity
+Analysis
+GROUP BY/HAVING
+Zones/categories over a threshold
+Grouped filtering
+Derived report
+Estimated vs actual quantity difference
+Collection accuracy
+Derived report
+Route actual weight (V_ROUTE_WEIGHT) vs net disposed weight
+Disposal discrepancy check
+Derived report
+Facility daily net weight vs capacity_tonnes_per_day × 1000
+Capacity check
+Route report
+Stops ordered by stop_sequence
+Route display
+
+7. Procedure/function/trigger guidance
+Procedure candidate: get_zone_collection_summary(zone_id, target_date).
+Procedure candidate: update_pickup_status(request_id, new_status), with validation if needed.
+Procedure (required by the schema): sp_record_disposal(route_id, facility_id, gross_weight_kg, tare_weight_kg, receipt_number). It checks that the facility is active, that FACILITY_ACCEPTED_WASTE covers every category loaded on the route, and that the day's net weight stays within capacity_tonnes_per_day × 1000, then inserts the DISPOSAL_RECORD.
+Function candidate: route_utilization(route_id) = derived route estimated weight / assigned vehicle capacity × 100; return NULL/0 safely when the vehicle is missing or capacity is zero.
+Trigger set (justified by the schema, not by marks): BEFORE INSERT on HOSPITAL, HOUSING_SOCIETY, FACTORY, RECYCLING_PLANT, PROCESSING_PLANT and HAZARDOUS_DISPOSAL_SITE (discriminator must match, subtype tables must stay disjoint) and BEFORE UPDATE on generator_type and facility_type. Document at least one fully; implement all six subtype INSERT triggers and both discriminator UPDATE triggers; none of these triggers is optional.
+Do not store ROUTE total_estimated_weight or total_actual_weight as base columns; they are derived through V_ROUTE_WEIGHT. DISPOSAL_RECORD.net_disposed_weight_kg is the one stored generated column.
+8. Java handoff contract
+Give Member 2 the database name, JDBC URL format, schema.sql and seed.sql.
+Document every PK/FK and nullable field (Appendix A); the allowed status, role and type values are in Appendix C so Java enums match the CHECK lists.
+Remind the team that USER must be quoted as `USER` in raw SQL, that route weights come from V_ROUTE_WEIGHT, and that capacity_tonnes_per_day is in tonnes while all other weights are in kg.
+Provide stable test IDs/data, including one user of each role, one facility of each type and at least one disposal record.
+Notify the team before any schema change after DAO coding starts.
+9. Seven-day core sprint
+Day
+Work
+Exit criterion
+1
+Database + core tables (ZONE, WASTE_CATEGORY, WASTE_GENERATOR, USER, VEHICLE, ROUTE, PICKUP_REQUEST, ROUTE_STOP, REQUEST_WASTE)
+Clean build from scratch
+2
+Subtype tables, disposal module (facility, subtypes, accepted waste, disposal record), seed data, constraints
+Representative dataset works (all 18 relations)
+3
+Views + queries (incl. disposal and hazard queries)
+Reports return correct results
+4
+Procedures (incl. sp_record_disposal) + function
+Routines execute
+5
+Triggers + edge cases + rebuild
+Integrity rules proven
+6
+Package scripts + JDBC handoff
+Other members can connect
+7
+End-to-end DB test + freeze v1
+Database version frozen
+
+10. Evidence/screenshots
+Database creation and SHOW TABLES (18 tables plus the 2 views).
+DESCRIBE output for representative tables (including USER, DISPOSAL_FACILITY, DISPOSAL_RECORD, WASTE_CATEGORY).
+Seed data in core tables, subtype tables and the disposal tables.
+JOIN output (including the route + disposal record + facility join).
+Aggregate/GROUP BY/HAVING output (including hazard-level and facility totals).
+V_ROUTE_WEIGHT and V_PICKUP_REQUEST_ZONE output.
+Constraint tests: duplicate UNIQUE value, CHECK violation (role/generator_id, status), missing parent FK, duplicate request on a second route stop, duplicate stop_sequence on a route.
+Delete-rule tests: RESTRICT blocking, CASCADE removing children, SET NULL on VEHICLE.assigned_zone_id.
+Procedure execution, including a rejected sp_record_disposal call (category not accepted or capacity exceeded).
+Function execution.
+Trigger behavior (accepted and rejected subtype inserts).
+Generated column: net_disposed_weight_kg = gross − tare.
+Clean rebuild from script.
+11. Viva preparation
+Why is PICKUP_REQUEST.zone_id absent?
+Why is ROUTE_STOP a strong entity?
+Why is REQUEST_WASTE composite-keyed?
+Why is ROUTE_STOP.request_id UNIQUE?
+Why are route totals derived, while net_disposed_weight_kg is a generated column?
+Why is disposal modeled with DISPOSAL_FACILITY, FACILITY_ACCEPTED_WASTE and DISPOSAL_RECORD rather than a site column on ROUTE?
+Why is USER a single table with a role CHECK, and why is generator_id nullable?
+Why are both specializations disjoint and partial, and how do the triggers enforce them?
+Why does WASTE_CATEGORY carry hazard_level?
+Explain RESTRICT, CASCADE and SET NULL, and where each is used.
+Explain normalization and anomaly prevention.
+Explain your procedure, function and trigger.
+12. Commit deliverables
+sql/01_create_database.sql
+sql/02_create_tables.sql
+sql/03_seed_data.sql
+sql/04_views.sql
+sql/05_queries.sql
+sql/06_procedures.sql
+sql/07_functions.sql
+sql/08_triggers.sql
+docs/db_setup.md
+docs/db_test_cases.md
+screenshots/dbms/
+Open points to confirm with the team
+Nullability choices made explicit in the corrected schema: address, preferred_pickup_date and facility latitude/longitude are NOT NULL (as in the earlier frozen schema); confirm.
+capacity_tonnes_per_day keeps its name and unit (tonnes) so the diagrams still match; all comparisons convert with × 1000.
+Route total weights do not appear in the approved diagrams; they stay derived through V_ROUTE_WEIGHT.
+Subtype consistency: implement all six subtype INSERT triggers and both discriminator UPDATE triggers for the two disjoint/partial specializations. Document and test each trigger; stored-procedure checks do not replace these required triggers.
+Target platform is MySQL 8.0.16 or later; confirm that every team machine runs it, otherwise CHECK constraints are silently ignored.
+Appendix A — Column reference (corrected schema)
+Relation
+Columns (type, constraints) and keys
+ZONE
+zone_id INT AUTO_INCREMENT zone_name VARCHAR(100) NOT NULL description TEXT NULL Keys: PK zone_id; UK zone_name
+WASTE_GENERATOR
+generator_id INT AI name VARCHAR(150) NOT NULL generator_type VARCHAR(50) NOT NULL CHECK IN (HOSPITAL, HOUSING_SOCIETY, FACTORY, HOTEL, SCHOOL, RESTAURANT, OFFICE, OTHER) contact_person VARCHAR(100) NULL phone VARCHAR(20) NULL email VARCHAR(100) NULL address TEXT NOT NULL latitude DECIMAL(10,8) NULL longitude DECIMAL(11,8) NULL zone_id INT NOT NULL is_active BOOLEAN NOT NULL DEFAULT TRUE created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP Keys: PK generator_id; FK zone_id → ZONE
+USER
+user_id INT AI username VARCHAR(50) NOT NULL password_hash VARCHAR(255) NOT NULL role VARCHAR(30) NOT NULL CHECK IN (GENERATOR, ADMIN, OPERATOR, DRIVER) generator_id INT NULL is_active BOOLEAN NOT NULL DEFAULT TRUE created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP Keys: PK user_id; UK username; FK generator_id → WASTE_GENERATOR; CHECK (role=GENERATOR ⇔ generator_id NOT NULL)
+WASTE_CATEGORY
+category_id INT AI category_name VARCHAR(100) NOT NULL description TEXT NULL hazard_level VARCHAR(30) NOT NULL DEFAULT LOW CHECK IN (LOW, MEDIUM, HIGH, BIOMEDICAL) Keys: PK category_id; UK category_name
+VEHICLE
+vehicle_id INT AI vehicle_number VARCHAR(30) NOT NULL capacity_kg DECIMAL(10,2) NOT NULL status VARCHAR(30) NOT NULL DEFAULT AVAILABLE CHECK IN (AVAILABLE, IN_ROUTE, MAINTENANCE) assigned_zone_id INT NULL created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP Keys: PK vehicle_id; UK vehicle_number; FK assigned_zone_id → ZONE
+PICKUP_REQUEST
+request_id INT AI generator_id INT NOT NULL request_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP preferred_pickup_date DATE NOT NULL status VARCHAR(30) NOT NULL DEFAULT PENDING CHECK IN (PENDING, ASSIGNED, IN_ROUTE, COMPLETED, CANCELLED) completion_date DATETIME NULL remarks TEXT NULL Keys: PK request_id; FK generator_id → WASTE_GENERATOR
+REQUEST_WASTE
+request_id INT NOT NULL category_id INT NOT NULL estimated_quantity DECIMAL(10,2) NOT NULL actual_quantity DECIMAL(10,2) NULL Keys: PK (request_id, category_id); FK request_id → PICKUP_REQUEST; FK category_id → WASTE_CATEGORY
+ROUTE
+route_id INT AI vehicle_id INT NOT NULL zone_id INT NOT NULL route_date DATE NOT NULL status VARCHAR(30) NOT NULL DEFAULT PLANNED CHECK IN (PLANNED, IN_PROGRESS, DISPATCHED_TO_DISPOSAL, COMPLETED, CANCELLED) created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP Keys: PK route_id; FK vehicle_id → VEHICLE; FK zone_id → ZONE
+ROUTE_STOP
+stop_id INT AI route_id INT NOT NULL request_id INT NOT NULL stop_sequence INT NOT NULL status VARCHAR(30) NOT NULL DEFAULT PENDING CHECK IN (PENDING, COMPLETED, SKIPPED) arrival_time DATETIME NULL completion_time DATETIME NULL Keys: PK stop_id; FK route_id → ROUTE; FK request_id → PICKUP_REQUEST (UNIQUE); UNIQUE (route_id, stop_sequence)
+DISPOSAL_FACILITY
+facility_id INT AI facility_name VARCHAR(150) NOT NULL facility_type VARCHAR(50) NOT NULL CHECK IN (RECYCLING_PLANT, PROCESSING_PLANT, HAZARDOUS_DISPOSAL_SITE, LANDFILL) capacity_tonnes_per_day DECIMAL(10,2) NOT NULL address TEXT NOT NULL latitude DECIMAL(10,8) NOT NULL longitude DECIMAL(11,8) NOT NULL zone_id INT NOT NULL is_active BOOLEAN NOT NULL DEFAULT TRUE Keys: PK facility_id; UK facility_name; FK zone_id → ZONE
+FACILITY_ACCEPTED_WASTE
+facility_id INT NOT NULL category_id INT NOT NULL processing_rate_per_kg DECIMAL(8,2) NOT NULL DEFAULT 0.00 Keys: PK (facility_id, category_id); FK facility_id → DISPOSAL_FACILITY; FK category_id → WASTE_CATEGORY
+DISPOSAL_RECORD
+disposal_id INT AI route_id INT NOT NULL facility_id INT NOT NULL unloading_timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP gross_weight_kg DECIMAL(10,2) NOT NULL tare_weight_kg DECIMAL(10,2) NOT NULL net_disposed_weight_kg DECIMAL(10,2) GENERATED ALWAYS AS (gross_weight_kg − tare_weight_kg) STORED (derived attribute) receipt_number VARCHAR(100) NOT NULL status VARCHAR(30) NOT NULL DEFAULT VERIFIED CHECK IN (VERIFIED, DISCREPANCY, REJECTED) Keys: PK disposal_id; UK receipt_number; FK route_id → ROUTE; FK facility_id → DISPOSAL_FACILITY
+HOSPITAL
+generator_id INT NOT NULL license_number VARCHAR(50) NOT NULL biomedical_auth_number VARCHAR(50) NOT NULL auth_expiry_date DATE NULL Keys: PK+FK generator_id → WASTE_GENERATOR
+HOUSING_SOCIETY
+generator_id INT NOT NULL registration_number VARCHAR(50) NOT NULL number_of_flats INT NULL Keys: PK+FK generator_id → WASTE_GENERATOR
+FACTORY
+generator_id INT NOT NULL industry_type VARCHAR(100) NULL pollution_consent_no VARCHAR(50) NOT NULL consent_expiry_date DATE NULL Keys: PK+FK generator_id → WASTE_GENERATOR
+RECYCLING_PLANT
+facility_id INT NOT NULL recycling_license_no VARCHAR(50) NOT NULL materials_processed TEXT NULL Keys: PK+FK facility_id → DISPOSAL_FACILITY
+PROCESSING_PLANT
+facility_id INT NOT NULL processing_technology VARCHAR(100) NULL compost_output_capacity DECIMAL(10,2) NULL Keys: PK+FK facility_id → DISPOSAL_FACILITY
+HAZARDOUS_DISPOSAL_SITE
+facility_id INT NOT NULL incineration_temp_celsius DECIMAL(7,2) NULL environmental_clearance_no VARCHAR(50) NOT NULL Keys: PK+FK facility_id → DISPOSAL_FACILITY
+
+Appendix B — Relationship-to-relation mapping (from the EER and the FK table)
+EER relationship
+Cardinality
+Relational implementation
+ZONE contains WASTE_GENERATOR
+1 : N
+WASTE_GENERATOR.zone_id → ZONE.zone_id
+ZONE serves ROUTE
+1 : N
+ROUTE.zone_id → ZONE.zone_id
+ZONE home_zone_for VEHICLE
+1 : N
+VEHICLE.assigned_zone_id → ZONE.zone_id (nullable, SET NULL)
+ZONE located_in DISPOSAL_FACILITY
+1 : N
+DISPOSAL_FACILITY.zone_id → ZONE.zone_id
+WASTE_GENERATOR has_account USER
+1 : N
+USER.generator_id → WASTE_GENERATOR.generator_id (required when role = GENERATOR)
+WASTE_GENERATOR submits PICKUP_REQUEST
+1 : N
+PICKUP_REQUEST.generator_id → WASTE_GENERATOR.generator_id
+WASTE_GENERATOR specialization
+Disjoint / Partial
+HOSPITAL, HOUSING_SOCIETY and FACTORY use generator_id as PK/FK
+DISPOSAL_FACILITY specialization
+Disjoint / Partial
+RECYCLING_PLANT, PROCESSING_PLANT and HAZARDOUS_DISPOSAL_SITE use facility_id as PK/FK
+ROUTE assigned_to VEHICLE
+N : 1
+ROUTE.vehicle_id → VEHICLE.vehicle_id
+ROUTE includes_stops ROUTE_STOP
+1 : N
+ROUTE_STOP.route_id → ROUTE.route_id
+ROUTE_STOP scheduled_in PICKUP_REQUEST
+1 : 0..1
+ROUTE_STOP.request_id → PICKUP_REQUEST.request_id; NOT NULL + UNIQUE
+PICKUP_REQUEST contains_waste REQUEST_WASTE
+1 : N
+REQUEST_WASTE.request_id → PICKUP_REQUEST.request_id (part of composite PK)
+REQUEST_WASTE classified_as WASTE_CATEGORY
+N : 1
+REQUEST_WASTE.category_id → WASTE_CATEGORY.category_id (part of composite PK)
+ROUTE terminates_at DISPOSAL_RECORD
+1 : N
+DISPOSAL_RECORD.route_id → ROUTE.route_id
+DISPOSAL_FACILITY receives_disposal DISPOSAL_RECORD
+1 : N
+DISPOSAL_RECORD.facility_id → DISPOSAL_FACILITY.facility_id
+DISPOSAL_FACILITY handles_category FACILITY_ACCEPTED_WASTE
+1 : N
+FACILITY_ACCEPTED_WASTE.facility_id → DISPOSAL_FACILITY.facility_id
+WASTE_CATEGORY accepted_by FACILITY_ACCEPTED_WASTE
+1 : N
+FACILITY_ACCEPTED_WASTE.category_id → WASTE_CATEGORY.category_id
+
+Appendix C — Allowed value lists (CHECK constraints)
+Column
+Allowed values
+WASTE_GENERATOR.generator_type
+HOSPITAL, HOUSING_SOCIETY, FACTORY, HOTEL, SCHOOL, RESTAURANT, OFFICE, OTHER
+USER.role
+GENERATOR, ADMIN, OPERATOR, DRIVER
+WASTE_CATEGORY.hazard_level
+LOW (default), MEDIUM, HIGH, BIOMEDICAL
+VEHICLE.status
+AVAILABLE (default), IN_ROUTE, MAINTENANCE
+PICKUP_REQUEST.status
+PENDING (default), ASSIGNED, IN_ROUTE, COMPLETED, CANCELLED
+ROUTE.status
+PLANNED (default), IN_PROGRESS, DISPATCHED_TO_DISPOSAL, COMPLETED, CANCELLED
+ROUTE_STOP.status
+PENDING (default), COMPLETED, SKIPPED
+DISPOSAL_FACILITY.facility_type
+RECYCLING_PLANT, PROCESSING_PLANT, HAZARDOUS_DISPOSAL_SITE, LANDFILL
+DISPOSAL_RECORD.status
+VERIFIED (default), DISCREPANCY, REJECTED
+13. Required implementation clarifications and corrections
+This section supplements the approved 18-relation design. It does not remove relations, columns, views, procedures, functions, triggers, test cases or Java handoff requirements. Keep the approved names, keys, relationships and delete rules unless the team formally approves a schema revision.
+13.1 Numeric and generated-column integrity
+Add CHECK constraints, where supported by the approved schema and MySQL 8.0.16+, requiring non-negative estimated_quantity, actual_quantity when non-NULL, gross_weight_kg, tare_weight_kg, processing_rate_per_kg, and non-negative capacities. Require vehicle capacity_kg and facility capacity_tonnes_per_day to be greater than zero. Require stop_sequence > 0.
+For DISPOSAL_RECORD, require gross_weight_kg >= tare_weight_kg >= 0. Define net_disposed_weight_kg as gross_weight_kg - tare_weight_kg using the ordinary SQL hyphen-minus character, not a typographic minus. Do not supply the generated column in INSERT statements.
+The corrected schema currently makes actual_quantity nullable. Preserve that choice, but interpret NULL as “not yet recorded,” not zero. V_ROUTE_WEIGHT must expose whether actual quantities are complete (for example, an additional completeness/count indicator or a separate reporting query). Do not present SUM(actual_quantity) as a complete route actual total if any relevant actual_quantity is NULL. SQL SUM ignores NULL values.
+13.2 V_ROUTE_WEIGHT semantics
+Use the documented join path ROUTE → ROUTE_STOP → REQUEST_WASTE and group by route_id. ROUTE_STOP.request_id is UNIQUE, so the join does not inherently duplicate a request across routes. Confirm that each REQUEST_WASTE row represents a distinct, non-overlapping quantity in kg; do not add category quantities if the application stores overlapping totals.
+Keep routes with no stops in the view by retaining LEFT JOINs. Such routes should show zero or NULL according to the chosen reporting convention; document the convention and use COALESCE only if zero is semantically appropriate. Actual totals remain incomplete until all applicable actual quantities are recorded.
+13.3 Required subtype trigger coverage
+Implement BEFORE INSERT triggers for HOSPITAL, HOUSING_SOCIETY, FACTORY, RECYCLING_PLANT, PROCESSING_PLANT and HAZARDOUS_DISPOSAL_SITE. Each must verify the supertype discriminator and check the other subtype tables to enforce disjointness.
+Implement BEFORE UPDATE triggers on WASTE_GENERATOR.generator_type and DISPOSAL_FACILITY.facility_type. Reject a discriminator change that would disagree with an existing subtype row. Define and test a policy for changing subtype primary-key/foreign-key IDs; simplest is to prohibit changing them after insertion.
+Test both successful and rejected inserts, attempts to insert a second subtype for the same supertype, and discriminator changes both to a matching and non-matching value. Do not describe a trigger as enforcing a rule unless its test demonstrates that rule.
+13.4 Disposal procedure: validation, lifecycle and concurrency
+sp_record_disposal must reject negative weights, gross weight below tare weight, duplicate receipt numbers, inactive facilities, facilities that do not accept every category on the route, and facility/day capacity overflow. Validate that the route and facility exist and that the route is in a permitted lifecycle status before recording disposal.
+Perform the capacity check and insert in one transaction. Serialize competing capacity checks for the same facility/day (for example, lock the stable DISPOSAL_FACILITY row with SELECT ... FOR UPDATE before reading that day’s records and inserting). Roll back and signal a clear SQL error if validation fails. A simple check followed by an unprotected insert is vulnerable to concurrent overbooking.
+Capacity is the sum of net_disposed_weight_kg for the facility and calendar date of unloading_timestamp, compared with capacity_tonnes_per_day × 1000. State the timezone/calendar-day convention used by the application.
+Define the allowed number of DISPOSAL_RECORD rows per route. The current schema permits multiple records for one route. Preserve that capability unless the team formally changes the schema; document whether multiple unloadings are allowed and how each unloading’s measured net weight is interpreted.
+Do not assume a route’s collected actual weight must equal a disposal record’s net weight. Partial collection, multiple unloadings, tare/gross measurement differences and unrecorded actual quantities can create differences. Report the values separately and flag discrepancies rather than silently forcing equality.
+13.5 Cross-table and lifecycle rules
+Before assigning a request to a route, validate that the request generator’s zone matches ROUTE.zone_id. The existing foreign keys cannot enforce this cross-table condition by themselves.
+Before a request is submitted/eligible for assignment, require at least one REQUEST_WASTE row. Before a route is dispatched, require at least one ROUTE_STOP. These total-participation rules are not enforced by the current foreign keys; enforce them in the controlled application workflow or a suitable transaction/procedure and test rejection cases.
+Define how preferred_pickup_date relates to ROUTE.route_date, and enforce the chosen policy in assignment logic. Also define valid status transitions for PICKUP_REQUEST, ROUTE_STOP and ROUTE so impossible transitions (such as completing a cancelled request) are rejected.
+Define hazardous/biomedical authorization explicitly. The current facility accepted-waste matrix determines accepted categories, but does not by itself prove that a facility has the required regulatory authorization. If the project models authorization through facility subtype and clearance fields, validate that rule in sp_record_disposal and document the mapping; do not invent a new table without team approval.
+The USER role/generator_id CHECK enforces the documented relationship, not full authorization. Apply role-based checks in Java and restrict database credentials appropriately. Quote the table as `USER` in SQL.
+13.6 SQL portability and verification
+Use MySQL 8.0.16 or later and verify the exact server version in the evidence. CHECK constraints were not enforced in older MySQL releases.
+Use regular ASCII hyphen-minus in SQL arithmetic. Keep capacity units explicit: quantities and weights are kg; capacity_tonnes_per_day is tonnes/day and must be multiplied by 1000 for comparison.
+Add test cases for negative quantities/weights, zero or negative capacities, gross < tare, stop_sequence <= 0, NULL actual quantities, empty routes, requests without waste rows, cross-zone assignment, invalid status transitions, duplicate receipts, facility/day capacity boundaries, and two concurrent disposal attempts if concurrency can be demonstrated.
+For any rule implemented in Java rather than SQL, identify it explicitly in docs/db_test_cases.md and demonstrate both accepted and rejected cases. Application checks do not replace required declarative constraints or the required subtype triggers.
+13.7 Deliverable status
+All original deliverables remain required: 18 base tables, 2 views, seed data for every table, the SQL query set, both procedure categories including sp_record_disposal, the route-utilization function, all subtype triggers, database setup/test documentation, screenshots, clean rebuild and Java handoff. The clarifications above add validation and test coverage; they are not permission to omit existing work.

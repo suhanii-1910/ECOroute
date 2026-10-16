@@ -10,20 +10,20 @@ import java.util.Optional;
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
 public final class RequestWasteDAO {
     private final Connection connection;
-    private static final String SELECT = "SELECT request_id, category_id, estimated_quantity, actual_quantity FROM `REQUEST_WASTE`";
+    private static final String SELECT = "SELECT request_id, category_id, estimated_quantity_kg, actual_quantity_kg FROM `REQUEST_WASTE`";
     public RequestWasteDAO(Connection connection) { this.connection = connection; }
     private static RequestWaste map(ResultSet r) throws SQLException {
         return new RequestWaste(
                 Jdbc.nullableLong(r, "request_id"),
                 Jdbc.nullableLong(r, "category_id"),
-                r.getBigDecimal("estimated_quantity"),
-                r.getBigDecimal("actual_quantity"));
+                r.getBigDecimal("estimated_quantity_kg"),
+                r.getBigDecimal("actual_quantity_kg"));
     }
 
     public void insertLine(RequestWaste value) {
         Jdbc.change(
                 connection,
-                "INSERT INTO `REQUEST_WASTE` (request_id, category_id, estimated_quantity, actual_quantity) VALUES (?, ?, ?, ?)",
+                "INSERT INTO `REQUEST_WASTE` (request_id, category_id, estimated_quantity_kg, actual_quantity_kg) VALUES (?, ?, ?, ?)",
                 value.getRequestId(),
                 value.getCategoryId(),
                 value.getEstimatedQuantity(),
@@ -37,7 +37,7 @@ public final class RequestWasteDAO {
     public void updateActualQuantity(long requestId, long categoryId, java.math.BigDecimal actual) {
         Jdbc.change(
                 connection,
-                "UPDATE `REQUEST_WASTE` SET actual_quantity = ? WHERE request_id = ? AND category_id = ?",
+                "UPDATE `REQUEST_WASTE` SET actual_quantity_kg = ? WHERE request_id = ? AND category_id = ?",
                 actual,
                 requestId,
                 categoryId);

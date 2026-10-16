@@ -7,6 +7,8 @@ import ecoroute.planning.RequestView;
 import ecoroute.planning.UnassignedRequest;
 import ecoroute.planning.VehicleLoad;
 import ecoroute.planning.VehicleView;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,11 +29,19 @@ import java.util.Map;
  */
 public class VehicleAssignmentTest {
 
-    public static void main(String[] args) {
+    private VehicleAssignment assigner;
+    private ZoneGrouper grouper;
 
-        VehicleAssignment assigner = new VehicleAssignment();
-        ZoneGrouper grouper = new ZoneGrouper();
+    @BeforeEach
+    public void setUp() {
+        Check.reset();
+        assigner = new VehicleAssignment();
+        grouper = new ZoneGrouper();
+    }
 
+    @Test
+    public void testScenario1ExactCapacityFit() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 1 - exact capacity fit");
         Check.note("A 300 kg request onto a 300 kg vehicle must be ACCEPTED, not rejected.");
@@ -49,7 +59,12 @@ public class VehicleAssignmentTest {
         Check.eqDecimal("remaining capacity is exactly zero", "0",
                 r1.getLoads().get(0).getRemainingCapacity());
         Check.isTrue("capacity invariant holds", r1.allLoadsRespectCapacity());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario2RequestLargerThanEveryVehicle() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 2 - request larger than every vehicle");
         Check.note("Must be REPORTED unassignable, not thrown as an exception.");
@@ -66,7 +81,12 @@ public class VehicleAssignmentTest {
                 r2.getUnassigned().get(0).getReasonCode());
         System.out.println("      message shown to the manager:");
         System.out.println("      \"" + r2.getUnassigned().get(0).getReasonMessage() + "\"");
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario3CombinedRequestsExceedOneVehicleSplitAcrossTwo() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 3 - combined requests exceed one vehicle, split across two");
         // ==============================================================
@@ -84,7 +104,12 @@ public class VehicleAssignmentTest {
         Check.eq("they are SPLIT across two vehicles", 2, r3.getUsedLoads().size());
         Check.eq("nothing unassigned", 0, r3.getUnassignedCount());
         Check.isTrue("neither vehicle is overloaded", r3.allLoadsRespectCapacity());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario4NoVehiclesAvailableAtAll() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 4 - no vehicles available at all");
         // ==============================================================
@@ -103,7 +128,12 @@ public class VehicleAssignmentTest {
                                 new ArrayList<VehicleView>());
                     }
                 });
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario5TotalDemandExceedsTotalFleetCapacity() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 5 - total demand exceeds total fleet capacity");
         Check.note("THE CRITICAL ONE. Some requests go unassigned; NOTHING is overloaded.");
@@ -123,16 +153,6 @@ public class VehicleAssignmentTest {
         Check.eq("assigned + unassigned accounts for every request", 3,
                 r5.getAssignedRequestCount() + r5.getUnassignedCount());
 
-        // FFD BACKFILL - an important and slightly surprising property.
-        // Sorted largest-first the scan is 200, 150, 100:
-        //     200 -> loaded, 100 kg remains
-        //     150 -> SKIPPED, it does not fit in 100
-        //     100 -> loaded, it fits the gap EXACTLY
-        // So skipping an item does NOT waste the space it could not use.
-        // A later, smaller item backfills the gap, and the vehicle ends up
-        // perfectly full. This is why FFD outperforms the naive
-        // "stop at the first failure" approach, and it is a good thing to
-        // be able to explain if an examiner asks what happens after a skip.
         Check.eqDecimal("the vehicle ends up EXACTLY full - the 100 backfilled the gap",
                 "300", r5.getLoads().get(0).getUsedCapacity());
         Check.eq("two requests fitted, one did not", 2, r5.getAssignedRequestCount());
@@ -141,7 +161,12 @@ public class VehicleAssignmentTest {
         Check.note("Skipping an item does not waste its gap - a smaller item backfills it.");
         System.out.println();
         System.out.println(indent(assigner.describe(r5)));
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario6MultipleFeasibleVehiclesDeterministicChoice() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 6 - multiple feasible vehicles, DETERMINISTIC choice");
         Check.note("Running the same input 50 times must give the identical answer.");
@@ -181,7 +206,12 @@ public class VehicleAssignmentTest {
         Check.eq("equal weights are ordered by request id - 10 first", 10L, order.get(0).getRequestId());
         Check.eq("...then 20", 20L, order.get(1).getRequestId());
         Check.eq("...then 30", 30L, order.get(2).getRequestId());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testFirstFitDecreasingLargestFirst() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("FIRST-FIT DECREASING - proof the sort really is largest-first");
         // ==============================================================
@@ -203,7 +233,12 @@ public class VehicleAssignmentTest {
                 UnassignedRequest.FLEET_CAPACITY_FULL,
                 ffd.getUnassigned().get(0).getReasonCode());
         Check.note("Two different reasons for two different problems - the manager can act on each.");
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testMultiZoneVehicleNotUsedInTwoZones() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("MULTI-ZONE - a vehicle cannot be used in two zones");
         Check.note("Member 2's save() flips the vehicle to IN_USE, so it leaves the pool.");
@@ -225,7 +260,12 @@ public class VehicleAssignmentTest {
         Check.eq("with reason NO_VEHICLE_AVAILABLE",
                 UnassignedRequest.NO_VEHICLE_AVAILABLE,
                 all.get(2L).getUnassigned().get(0).getReasonCode());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario9CancelledRequestsNeverReachAssignment() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 9 - cancelled requests never reach assignment");
         // ==============================================================
@@ -245,31 +285,64 @@ public class VehicleAssignmentTest {
         }
         Check.isFalse("the CANCELLED request 106 is never on any vehicle", cancelledSeen);
         Check.eq("it was filtered out before planning and reported", 1, rejected.size());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testFullRealisticRun() {
+        if (assigner == null) setUp();
         // ==============================================================
         Check.suite("FULL REALISTIC RUN - the fixture dataset end to end");
         // ==============================================================
         int assignedTotal = 0;
         int unassignedTotal = 0;
         boolean allSafe = true;
+
+        List<RequestView> rejected = new ArrayList<RequestView>();
+        Map<Long, List<RequestView>> eligible =
+                grouper.groupEligibleByZone(FakeData.allRequests(), FakeData.TODAY, rejected);
+        Map<Long, AssignmentResult> fullRun =
+                assigner.assignAll(eligible, FakeData.availableVehicles());
+
         for (AssignmentResult result : fullRun.values()) {
-            assignedTotal += result.getAssignedRequestCount();
+            assignedTotal   += result.getAssignedRequestCount();
             unassignedTotal += result.getUnassignedCount();
             if (!result.allLoadsRespectCapacity()) allSafe = false;
         }
 
-        Check.isTrue("EVERY vehicle in EVERY zone respects capacity", allSafe);
-        Check.eq("all 5 eligible requests are accounted for", 5, assignedTotal + unassignedTotal);
+        Check.isTrue("capacity invariant holds across EVERY load in EVERY zone", allSafe);
+        Check.eq("assigned + unassigned equals the 5 eligible requests",
+                 5, assignedTotal + unassignedTotal);
+        Check.isTrue("the majority of requests are successfully assigned",
+                 assignedTotal > unassignedTotal);
 
         System.out.println();
         for (Map.Entry<Long, AssignmentResult> entry : fullRun.entrySet()) {
+            System.out.println("      ZONE " + entry.getKey() + ":");
             System.out.println(indent(assigner.describe(entry.getValue())));
         }
+        Check.assertNoFailures();
+    }
+
+    public static void main(String[] args) {
+        Check.reset();
+        VehicleAssignmentTest t = new VehicleAssignmentTest();
+        t.setUp();
+
+        t.testScenario1ExactCapacityFit();
+        t.testScenario2RequestLargerThanEveryVehicle();
+        t.testScenario3CombinedRequestsExceedOneVehicleSplitAcrossTwo();
+        t.testScenario4NoVehiclesAvailableAtAll();
+        t.testScenario5TotalDemandExceedsTotalFleetCapacity();
+        t.testScenario6MultipleFeasibleVehiclesDeterministicChoice();
+        t.testFirstFitDecreasingLargestFirst();
+        t.testMultiZoneVehicleNotUsedInTwoZones();
+        t.testScenario9CancelledRequestsNeverReachAssignment();
+        t.testFullRealisticRun();
 
         System.exit(Check.report());
     }
 
-    /** Indent a multi-line block so console output stays readable. */
     private static String indent(String block) {
         StringBuilder sb = new StringBuilder();
         for (String line : block.split("\n")) sb.append("      ").append(line).append('\n');

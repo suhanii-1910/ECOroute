@@ -10,12 +10,15 @@ import java.util.Optional;
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
 public final class GeneratorDAO {
     private final Connection connection;
-    private static final String SELECT = "SELECT generator_id, name, generator_type, contact_person, phone, email, address, latitude, longitude, zone_id, is_active, created_date FROM `WASTE_GENERATOR`";
+    private static final String SELECT =
+            "SELECT generator_id, generator_name, generator_type, contact_person, phone, email, address, " +
+            "latitude, longitude, zone_id, is_active, created_date FROM `WASTE_GENERATOR`";
     public GeneratorDAO(Connection connection) { this.connection = connection; }
+
     private static WasteGenerator map(ResultSet r) throws SQLException {
         return new WasteGenerator(
                 Jdbc.nullableLong(r, "generator_id"),
-                r.getString("name"),
+                r.getString("generator_name"),
                 r.getString("generator_type"),
                 r.getString("contact_person"),
                 r.getString("phone"),
@@ -46,8 +49,9 @@ public final class GeneratorDAO {
         }
         return Jdbc.insert(
                 connection,
-                "INSERT INTO `WASTE_GENERATOR` (name, generator_type, contact_person, phone, email, address, latitude, longitude, zone_id, is_active, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                value.getName(),
+                "INSERT INTO `WASTE_GENERATOR` (generator_name, generator_type, contact_person, phone, email, address, " +
+                "latitude, longitude, zone_id, is_active, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                value.getGeneratorName(),
                 value.getGeneratorType(),
                 value.getContactPerson(),
                 value.getPhone(),
@@ -63,8 +67,9 @@ public final class GeneratorDAO {
     public void update(WasteGenerator value) {
         Jdbc.change(
                 connection,
-                "UPDATE `WASTE_GENERATOR` SET name = ?, contact_person = ?, phone = ?, email = ?, address = ?, latitude = ?, longitude = ?, zone_id = ? WHERE generator_id = ?",
-                value.getName(),
+                "UPDATE `WASTE_GENERATOR` SET generator_name = ?, contact_person = ?, phone = ?, email = ?, " +
+                "address = ?, latitude = ?, longitude = ?, zone_id = ? WHERE generator_id = ?",
+                value.getGeneratorName(),
                 value.getContactPerson(),
                 value.getPhone(),
                 value.getEmail(),

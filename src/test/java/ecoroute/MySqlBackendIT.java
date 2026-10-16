@@ -42,8 +42,15 @@ public class MySqlBackendIT extends BackendSmokeTest {
             initialized = true;
         } else {
             // Only tables created by this test process, after the empty-schema guard, are cleared.
-            String[] tables = {"ROUTE_STOP", "REQUEST_WASTE", "PICKUP_REQUEST", "ROUTE", "VEHICLE",
-                    "DISPOSAL_SITE", "GENERATOR_USER", "STAFF_USER", "USER", "HOSPITAL", "HOUSING_SOCIETY", "FACTORY", "WASTE_GENERATOR", "WASTE_CATEGORY", "ZONE"};
+            String[] tables = {
+                    "DISPOSAL_RECORD", "FACILITY_ACCEPTED_WASTE",
+                    "RECYCLING_PLANT", "PROCESSING_PLANT", "HAZARDOUS_DISPOSAL_SITE",
+                    "DISPOSAL_FACILITY",
+                    "ROUTE_STOP", "REQUEST_WASTE", "PICKUP_REQUEST", "ROUTE", "VEHICLE",
+                    "USER",
+                    "HOSPITAL", "HOUSING_SOCIETY", "FACTORY",
+                    "WASTE_GENERATOR", "WASTE_CATEGORY", "ZONE"
+            };
             try (Statement statement = anchor.createStatement()) {
                 for (String table : tables) statement.executeUpdate("DELETE FROM `" + table + "`");
             }

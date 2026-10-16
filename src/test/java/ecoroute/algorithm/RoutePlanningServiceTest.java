@@ -11,6 +11,8 @@ import ecoroute.planning.VehicleView;
 import ecoroute.service.RequestPlanningService;
 import ecoroute.service.RoutePlanningService;
 import ecoroute.service.VehiclePlanningService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,12 +35,20 @@ import java.util.Set;
  */
 public final class RoutePlanningServiceTest {
 
-    public static void main(String[] args) {
+    private RoutePlanningService service;
 
+    @BeforeEach
+    public void setUp() {
+        Check.reset();
+        service = new RoutePlanningService();
+    }
+
+    @Test
+    public void testPipelineRunsEndToEnd() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Pipeline runs end to end on the standard fixture");
         // =================================================================
-        RoutePlanningService service = new RoutePlanningService();
         DayPlan plan = service.planDay(
                 FakeData.allRequests(), FakeData.allVehicles(), FakeData.TODAY);
 
@@ -47,15 +57,15 @@ public final class RoutePlanningServiceTest {
         Check.eq("plan names the strategy", "Nearest Neighbour", plan.getStrategyName());
         Check.isTrue("at least one route was planned", plan.getRouteCount() > 0);
         Check.note(plan.report());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testNothingSilentlyLost() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Nothing is ever silently lost");
         // =================================================================
-        // The single most important property of the whole pipeline. Every
-        // request that went in must come out somewhere: on a route, in the
-        // unassigned list, or in the ineligible list. A request that appears
-        // in none of them is a generator nobody will ever collect from, and
-        // no error message would have been produced.
         List<RequestView> input = FakeData.allRequests();
         DayPlan full = service.planDay(input, FakeData.allVehicles(), FakeData.TODAY);
 
@@ -72,31 +82,30 @@ public final class RoutePlanningServiceTest {
             accountedFor.add(Long.valueOf(u.getRequestId()));
         }
         Check.eq("every input request is accounted for", input.size(), accountedFor.size());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testCancelledAndNotYetDueRequestsNeverReachPlanning() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Cancelled and not-yet-due requests never reach planning");
         // =================================================================
-        // R106 is CANCELLED in the fixture. It must be filtered out before the
-        // assigner ever sees it - scenario 9 of the mandatory list.
+        List<RequestView> input = FakeData.allRequests();
+        DayPlan full = service.planDay(input, FakeData.allVehicles(), FakeData.TODAY);
+
         boolean cancelledIsIneligible = false;
         for (UnassignedRequest u : full.getIneligible()) {
             if (u.getRequestId() == 106L) cancelledIsIneligible = true;
         }
         Check.isTrue("cancelled request 106 is excluded before planning", cancelledIsIneligible);
 
-        // The reason code must say NOT_PENDING, not DATE_NOT_DUE. This check
-        // exists because the pipeline originally reported the contradiction
-        // "[DATE_NOT_DUE] Request status is CANCELLED, not PENDING". Since the
-        // UI groups rows by CODE, a cancelled request would have been filed
-        // under "not due yet" - telling the operator to expect it tomorrow,
-        // when it is never coming back.
         for (UnassignedRequest u : full.getIneligible()) {
             if (u.getRequestId() == 106L) {
                 Check.eq("cancelled request is coded NOT_PENDING, not DATE_NOT_DUE",
                         UnassignedRequest.NOT_PENDING, u.getReasonCode());
             }
         }
-
 
         boolean cancelledOnARoute = false;
         for (RoutePlan route : full.getRoutes()) {
@@ -106,7 +115,6 @@ public final class RoutePlanningServiceTest {
         }
         Check.isFalse("cancelled request never appears on a route", cancelledOnARoute);
 
-        // A request whose preferred date is tomorrow must not be planned today.
         List<RequestView> withFuture = new ArrayList<RequestView>(FakeData.pendingRequests());
         withFuture.add(FakeData.notDueUntilTomorrow());
         DayPlan today = service.planDay(withFuture, FakeData.allVehicles(), FakeData.TODAY);
@@ -116,23 +124,24 @@ public final class RoutePlanningServiceTest {
         }
         Check.isTrue("request due tomorrow is deferred, not planned today", futureDeferred);
 
-        // ...and that one IS correctly coded DATE_NOT_DUE. The two codes must
-        // stay distinct: "come back tomorrow" and "never coming back" are
-        // different instructions to the operator.
         for (UnassignedRequest u : today.getIneligible()) {
             if (u.getRequestId() == FakeData.notDueUntilTomorrow().getRequestId()) {
                 Check.eq("a genuinely not-yet-due request is still coded DATE_NOT_DUE",
                         UnassignedRequest.DATE_NOT_DUE, u.getReasonCode());
             }
         }
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testStopSequencesAreUniqueAndContiguous() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Stop sequences are unique and contiguous 1..N per route");
         // =================================================================
-        // ROUTE_STOP carries UNIQUE(route_id, stop_sequence). If the planner
-        // ever emitted a duplicate, persistence would fail at insert time with
-        // a constraint violation that is painful to trace back. Catching it
-        // here is far cheaper - scenario 7 of the mandatory list.
+        List<RequestView> input = FakeData.allRequests();
+        DayPlan full = service.planDay(input, FakeData.allVehicles(), FakeData.TODAY);
+
         boolean allSequencesValid = true;
         for (RoutePlan route : full.getRoutes()) {
             Set<Integer> seen = new HashSet<Integer>();
@@ -144,10 +153,18 @@ public final class RoutePlanningServiceTest {
             }
         }
         Check.isTrue("every route has stop_sequence 1..N with no gaps or repeats", allSequencesValid);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testNoRouteExceedsVehicleCapacity() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("No route exceeds its vehicle capacity");
         // =================================================================
+        List<RequestView> input = FakeData.allRequests();
+        DayPlan full = service.planDay(input, FakeData.allVehicles(), FakeData.TODAY);
+
         boolean allWithinCapacity = true;
         for (RoutePlan route : full.getRoutes()) {
             if (route.getTotalEstimatedWeight().compareTo(route.getCapacityKg()) > 0) {
@@ -155,26 +172,36 @@ public final class RoutePlanningServiceTest {
             }
         }
         Check.isTrue("planned weight never exceeds capacity on any route", allWithinCapacity);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testVehicleNeverPlannedIntoTwoZonesOnOneDay() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("A vehicle is never planned into two zones on one day");
         // =================================================================
-        // Vehicle 5 has a NULL home zone, so it is a candidate in BOTH zones.
-        // If it were committed twice, the second persistence call would be
-        // rejected because the first already flipped it to IN_USE.
+        List<RequestView> input = FakeData.allRequests();
+        DayPlan full = service.planDay(input, FakeData.allVehicles(), FakeData.TODAY);
+
         Set<Long> vehiclesUsed = new HashSet<Long>();
         boolean noDoubleBooking = true;
         for (RoutePlan route : full.getRoutes()) {
             if (!vehiclesUsed.add(Long.valueOf(route.getVehicleId()))) noDoubleBooking = false;
         }
         Check.isTrue("each vehicle appears on at most one route", noDoubleBooking);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testUnassignedRequestsAlwaysCarryActionableReason() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Unassigned requests always carry an actionable reason");
         // =================================================================
-        // Scenario 5: demand exceeds fleet capacity. The fixture's zone 2 has
-        // 530 kg of demand against a 400 kg vehicle, so something must be
-        // refused - and the refusal has to explain itself.
+        List<RequestView> input = FakeData.allRequests();
+        DayPlan full = service.planDay(input, FakeData.allVehicles(), FakeData.TODAY);
+
         boolean everyReasonExplained = true;
         for (UnassignedRequest u : full.getUnassigned()) {
             if (u.getReasonCode() == null || u.getReasonCode().length() == 0) everyReasonExplained = false;
@@ -185,7 +212,6 @@ public final class RoutePlanningServiceTest {
             Check.note("refused: #" + u.getRequestId() + " [" + u.getReasonCode() + "] " + u.getReasonMessage());
         }
 
-        // A request bigger than every vehicle - scenario 2.
         List<RequestView> withGiant = new ArrayList<RequestView>(FakeData.pendingRequests());
         withGiant.add(FakeData.oversizedRequest());
         DayPlan giant = service.planDay(withGiant, FakeData.allVehicles(), FakeData.TODAY);
@@ -197,11 +223,15 @@ public final class RoutePlanningServiceTest {
             }
         }
         Check.isTrue("900 kg request refused as EXCEEDS_LARGEST_VEHICLE", giantRefusedCorrectly);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testEmptyAndDegenerateInputsReturnValidEmptyPlan() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Empty and degenerate inputs return a valid empty plan");
         // =================================================================
-        // "Nothing to do" is an answer, not an error. Scenario 4.
         DayPlan noVehicles = service.planDay(
                 FakeData.pendingRequests(), new ArrayList<VehicleView>(), FakeData.TODAY);
         Check.eq("no vehicles -> no routes", 0, noVehicles.getRouteCount());
@@ -228,19 +258,26 @@ public final class RoutePlanningServiceTest {
                 new RoutePlanningService().planDay(FakeData.allRequests(), FakeData.allVehicles(), null);
             }
         });
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testSameInputAlwaysProducesSamePlan() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("The same input always produces the same plan");
         // =================================================================
-        // Determinism is not a nicety. The examiner will run this on a
-        // different machine; HashMap iteration order and unstable comparators
-        // are exactly how a demo that worked last night stops working.
         DayPlan runA = service.planDay(FakeData.allRequests(), FakeData.allVehicles(), FakeData.TODAY);
         DayPlan runB = service.planDay(FakeData.allRequests(), FakeData.allVehicles(), FakeData.TODAY);
         Check.eq("same route count", runA.getRouteCount(), runB.getRouteCount());
         Check.eq("same total stops", runA.getTotalStops(), runB.getTotalStops());
         Check.eq("identical report text", runA.report(), runB.report());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testPlanZoneNarrowsScopeWithoutChangingRules() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("planZone narrows the scope without changing the rules");
         // =================================================================
@@ -252,12 +289,15 @@ public final class RoutePlanningServiceTest {
         }
         Check.isTrue("planZone(1) returns only zone 1 routes", onlyZone1);
         Check.isTrue("planZone(1) still plans something", zone1.getRouteCount() > 0);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testSwappingStrategyPolymorphism() {
+        if (service == null) setUp();
         // =================================================================
         Check.suite("Swapping the strategy changes the result - polymorphism");
         // =================================================================
-        // Identical inputs, identical pipeline, one component replaced. The
-        // calling code is the same; only the number at the end differs.
         DayPlan nn = service.planDay(FakeData.allRequests(), FakeData.allVehicles(), FakeData.TODAY);
         DayPlan fifo = service.planDayWith(new RequestOrderRoute(),
                 FakeData.allRequests(), FakeData.allVehicles(), FakeData.TODAY);
@@ -278,7 +318,11 @@ public final class RoutePlanningServiceTest {
 
         Check.isTrue("nearest neighbour is not longer than naive request order",
                 nn.getTotalDistanceDegrees() <= fifo.getTotalDistanceDegrees() + 1e-9);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testSupportingServices() {
         // =================================================================
         Check.suite("Supporting services answer their own questions");
         // =================================================================
@@ -296,20 +340,39 @@ public final class RoutePlanningServiceTest {
         Check.eqDecimal("largest available vehicle is 500 kg", "500.000",
                 fleet.largestCapacity(FakeData.availableVehicles()));
 
-        // fleetCouldCover is an upper bound, never a promise. 1550 kg of total
-        // capacity "covers" 1300 kg of demand, and yet request 104 is still
-        // refused - because capacity split across vehicles cannot be pooled to
-        // carry one indivisible load. This assertion documents that gap.
         Check.isTrue("fleet could cover total demand on paper",
                 fleet.fleetCouldCover(
                         requests.totalQuantity(requests.eligible(FakeData.allRequests(), FakeData.TODAY)),
                         FakeData.availableVehicles()));
+
+        if (service == null) service = new RoutePlanningService();
+        DayPlan full = service.planDay(FakeData.allRequests(), FakeData.allVehicles(), FakeData.TODAY);
         Check.isTrue("...and yet some requests are still unassigned",
                 full.getUnassignedCount() > 0);
         Check.note("Capacity in total is not capacity in the right place - that is why bin packing is hard.");
 
         Check.note(fleet.describe(FakeData.allVehicles()));
         Check.note(requests.describe(FakeData.allRequests(), FakeData.TODAY));
+        Check.assertNoFailures();
+    }
+
+    public static void main(String[] args) {
+        Check.reset();
+        RoutePlanningServiceTest t = new RoutePlanningServiceTest();
+        t.setUp();
+
+        t.testPipelineRunsEndToEnd();
+        t.testNothingSilentlyLost();
+        t.testCancelledAndNotYetDueRequestsNeverReachPlanning();
+        t.testStopSequencesAreUniqueAndContiguous();
+        t.testNoRouteExceedsVehicleCapacity();
+        t.testVehicleNeverPlannedIntoTwoZonesOnOneDay();
+        t.testUnassignedRequestsAlwaysCarryActionableReason();
+        t.testEmptyAndDegenerateInputsReturnValidEmptyPlan();
+        t.testSameInputAlwaysProducesSamePlan();
+        t.testPlanZoneNarrowsScopeWithoutChangingRules();
+        t.testSwappingStrategyPolymorphism();
+        t.testSupportingServices();
 
         System.exit(Check.report());
     }

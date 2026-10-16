@@ -1,7 +1,6 @@
 package ecoroute.model;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /** JDBC data holder. A null surrogate ID means it has not been inserted yet. */
 public class Vehicle {
@@ -10,17 +9,15 @@ public class Vehicle {
     private BigDecimal capacityKg;
     private String status;
     private Long assignedZoneId;
-    private LocalDateTime createdDate;
 
     public Vehicle() {}
 
-    public Vehicle(Long vehicleId, String vehicleNumber, BigDecimal capacityKg, String status, Long assignedZoneId, LocalDateTime createdDate) {
+    public Vehicle(Long vehicleId, String vehicleNumber, BigDecimal capacityKg, String status, Long assignedZoneId) {
         this.vehicleId = vehicleId;
         this.vehicleNumber = vehicleNumber;
         this.capacityKg = capacityKg;
         this.status = status;
         this.assignedZoneId = assignedZoneId;
-        this.createdDate = createdDate;
     }
 
     public Long getVehicleId() { return vehicleId; }
@@ -37,9 +34,6 @@ public class Vehicle {
 
     public Long getAssignedZoneId() { return assignedZoneId; }
     public void setAssignedZoneId(Long assignedZoneId) { this.assignedZoneId = assignedZoneId; }
-
-    public LocalDateTime getCreatedDate() { return createdDate; }
-    public void setCreatedDate(LocalDateTime createdDate) { this.createdDate = createdDate; }
 
     @Override
     public String toString() {

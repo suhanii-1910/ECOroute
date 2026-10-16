@@ -4,6 +4,8 @@ import ecoroute.fake.FakeData;
 import ecoroute.harness.Check;
 import ecoroute.planning.RequestView;
 import ecoroute.planning.StopPlan;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -24,10 +26,17 @@ import java.util.Set;
  */
 public class RouteStrategyTest {
 
-    public static void main(String[] args) {
+    private NearestNeighborRoute nearest;
 
-        NearestNeighborRoute nearest = new NearestNeighborRoute();
+    @BeforeEach
+    public void setUp() {
+        Check.reset();
+        nearest = new NearestNeighborRoute();
+    }
 
+    @Test
+    public void testScenario7StopSequenceUnique() {
+        if (nearest == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 7 - stop_sequence must be unique 1..N");
         Check.note("The DB enforces UNIQUE(route_id, stop_sequence); we must not rely on that.");
@@ -57,7 +66,12 @@ public class RouteStrategyTest {
         Set<Long> requestIds = new HashSet<Long>();
         for (StopPlan stop : plan) requestIds.add(Long.valueOf(stop.getRequestId()));
         Check.eq("no request is duplicated - UNIQUE(request_id) is safe", 5, requestIds.size());
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testScenario8ScatteredCoordinatesDeterministicOrder() {
+        if (nearest == null) setUp();
         // ==============================================================
         Check.suite("SCENARIO 8 - 3+ coordinates, deterministic order");
         // ==============================================================
@@ -98,7 +112,12 @@ public class RouteStrategyTest {
 
         System.out.println();
         System.out.println(indent(nearest.describe(route)));
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testEquidistantStopsTieBreakRule() {
+        if (nearest == null) setUp();
         // ==============================================================
         Check.suite("Equidistant stops - the tie-break rule");
         // ==============================================================
@@ -112,7 +131,12 @@ public class RouteStrategyTest {
         Check.eq("two stops are equidistant - the LOWER id (21) wins",
                  21L, tiedRoute.get(1).getRequestId());
         Check.note("Without an epsilon + id tie-break this would be decided by rounding noise.");
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testMissingCoordinatesVisitedNeverDropped() {
+        if (nearest == null) setUp();
         // ==============================================================
         Check.suite("Missing coordinates are visited, never dropped");
         // ==============================================================
@@ -128,7 +152,12 @@ public class RouteStrategyTest {
         Check.eq("it still receives a valid stop_sequence", 3,
                  mixedRoute.get(2).getStopSequence());
         Check.note("A dropped stop means a generator is never collected. Correctness first.");
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testContractEdgeCases() {
+        if (nearest == null) setUp();
         // ==============================================================
         Check.suite("Contract edge cases - must never throw");
         // ==============================================================
@@ -143,11 +172,21 @@ public class RouteStrategyTest {
         Check.eq("...numbered 1", 1, singlePlan.get(0).getStopSequence());
         Check.eqDouble("...with zero distance from previous", 0.0,
                  singlePlan.get(0).getDistanceFromPrevious(), 0.0000001);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testStrategyPatternPolymorphism() {
         // ==============================================================
         Check.suite("THE STRATEGY PATTERN - two implementations, one contract");
         Check.note("This is the proof that RouteStrategy is a real abstraction.");
         // ==============================================================
+        List<RequestView> scattered = new ArrayList<RequestView>();
+        scattered.add(FakeData.requestAt(10L, 1L, "100.000", 18.5000, 73.8000));  // origin
+        scattered.add(FakeData.requestAt(11L, 1L, "100.000", 18.5900, 73.8900));  // far
+        scattered.add(FakeData.requestAt(12L, 1L, "100.000", 18.5050, 73.8050));  // very near 10
+        scattered.add(FakeData.requestAt(13L, 1L, "100.000", 18.5400, 73.8400));  // middle
+
         List<RouteStrategy> strategies = new ArrayList<RouteStrategy>();
         strategies.add(new NearestNeighborRoute());
         strategies.add(new RequestOrderRoute());
@@ -183,6 +222,20 @@ public class RouteStrategyTest {
                       new NearestNeighborRoute().getDescription());
         Check.isTrue("...and admits it is not optimal",
                 new NearestNeighborRoute().getDescription().contains("NOT guarantee"));
+        Check.assertNoFailures();
+    }
+
+    public static void main(String[] args) {
+        Check.reset();
+        RouteStrategyTest t = new RouteStrategyTest();
+        t.setUp();
+
+        t.testScenario7StopSequenceUnique();
+        t.testScenario8ScatteredCoordinatesDeterministicOrder();
+        t.testEquidistantStopsTieBreakRule();
+        t.testMissingCoordinatesVisitedNeverDropped();
+        t.testContractEdgeCases();
+        t.testStrategyPatternPolymorphism();
 
         System.exit(Check.report());
     }

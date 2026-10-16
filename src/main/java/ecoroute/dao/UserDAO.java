@@ -30,19 +30,18 @@ public final class UserDAO {
         return Jdbc.one(connection, SELECT + " WHERE username = ?", UserDAO::map, username);
     }
 
-    /** Marker tables have no extra domain fields. Preserve the existing role-to-subtype mapping. */
-    public boolean hasValidSubtype(User user) {
-        return Jdbc.one(connection, """
-                SELECT g.user_id AS generator_user_id, s.user_id AS staff_user_id
-                FROM `USER` u
-                LEFT JOIN GENERATOR_USER g ON g.user_id = u.user_id
-                LEFT JOIN STAFF_USER s ON s.user_id = u.user_id
-                WHERE u.user_id = ?
-                """, r -> {
-            boolean generator = Jdbc.nullableLong(r, "generator_user_id") != null;
-            boolean staff = Jdbc.nullableLong(r, "staff_user_id") != null;
-            return ecoroute.db.DatabaseContract.GENERATOR.equals(user.getRole())
-                    ? generator && !staff : staff && !generator;
-        }, user.getUserId()).orElse(false);
+    public java.util.List<User> findAll() {
+        return Jdbc.list(connection, SELECT + " ORDER BY user_id ASC", UserDAO::map);
+    }
+
+    public long insert(User user) {
+        return Jdbc.insert(connection,
+                "INSERT INTO `USER` (username, password_hash, role, generator_id, is_active, created_date) VALUES (?, ?, ?, ?, ?, ?)",
+                user.getUsername(), user.getPasswordHash(), user.getRole(), user.getGeneratorId(), user.isActive(),
+                user.getCreatedDate() != null ? user.getCreatedDate() : java.time.LocalDateTime.now());
+    }
+
+    public void updateActive(long userId, boolean active) {
+        Jdbc.change(connection, "UPDATE `USER` SET is_active = ? WHERE user_id = ?", active, userId);
     }
 }

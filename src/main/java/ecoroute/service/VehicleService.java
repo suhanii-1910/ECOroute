@@ -1,11 +1,11 @@
 package ecoroute.service;
 
+import ecoroute.dao.RouteDAO;
 import ecoroute.dao.VehicleDAO;
 import ecoroute.db.Database;
 import ecoroute.model.Vehicle;
 import ecoroute.exception.InvalidRequestException;
 import ecoroute.exception.VehicleUnavailableException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import static ecoroute.db.DatabaseContract.*;
@@ -27,7 +27,7 @@ public final class VehicleService {
         if (homeZone != null) Validation.id(homeZone, "Home zone");
         return database.transaction(c -> {
             Access.admin(c, session);
-            return new VehicleDAO(c).insert(new Vehicle(null, number, capacity, AVAILABLE, homeZone, LocalDateTime.now()));
+            return new VehicleDAO(c).insert(new Vehicle(null, number, capacity, AVAILABLE, homeZone));
         });
     }
     public void updateStatus(UserSession session, long id, String next) {
@@ -36,7 +36,8 @@ public final class VehicleService {
             Access.admin(c, session);
             VehicleDAO dao = new VehicleDAO(c);
             Vehicle vehicle = dao.lockById(id).orElseThrow(() -> new InvalidRequestException("Vehicle does not exist."));
-            if (IN_USE.equals(vehicle.getStatus())) throw new VehicleUnavailableException("Vehicle has an unfinished route.");
+            if (IN_ROUTE.equals(vehicle.getStatus())) throw new VehicleUnavailableException("Vehicle has an unfinished route.");
+            if (new RouteDAO(c).hasActiveRoute(id)) throw new VehicleUnavailableException("Vehicle already has a planned route.");
             Validation.require(AVAILABLE.equals(vehicle.getStatus()) || MAINTENANCE.equals(vehicle.getStatus()), "Unknown vehicle state.");
             Validation.require(!next.equals(vehicle.getStatus()), "Vehicle is already in this state.");
             dao.updateStatus(id, vehicle.getStatus(), next);
@@ -49,7 +50,7 @@ public final class VehicleService {
             Access.admin(c, session);
             VehicleDAO dao = new VehicleDAO(c);
             Vehicle vehicle = dao.lockById(id).orElseThrow(() -> new InvalidRequestException("Vehicle does not exist."));
-            if (IN_USE.equals(vehicle.getStatus())) throw new VehicleUnavailableException("Cannot change the home zone during a route.");
+            if (IN_ROUTE.equals(vehicle.getStatus())) throw new VehicleUnavailableException("Cannot change the home zone during a route.");
             dao.updateHomeZone(id, zoneId);
             return null;
         });

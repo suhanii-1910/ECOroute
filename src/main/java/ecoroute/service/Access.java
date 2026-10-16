@@ -14,7 +14,6 @@ final class Access {
         User user = new UserDAO(connection).findById(session.getUserId())
                 .orElseThrow(() -> new InvalidRequestException("Session user no longer exists."));
         Validation.require(user.isActive() && user.getRole() != null && ROLES.contains(user.getRole()), "User is inactive or has an invalid role.");
-        Validation.require(new UserDAO(connection).hasValidSubtype(user), "User subtype is missing or inconsistent.");
         Validation.require(user.getRole().equals(session.getRole())
                 && Objects.equals(user.getGeneratorId(), session.getGeneratorId()), "User permissions changed; sign in again.");
         Validation.require(GENERATOR.equals(user.getRole()) ? user.getGeneratorId() != null : user.getGeneratorId() == null,
@@ -23,7 +22,13 @@ final class Access {
     }
     static void staff(Connection connection, UserSession session) {
         User user = current(connection, session);
-        Validation.require(ADMIN.equals(user.getRole()) || OPERATOR.equals(user.getRole()), "Staff access is required.");
+        Validation.require(ADMIN.equals(user.getRole()) || OPERATOR.equals(user.getRole()) || DRIVER.equals(user.getRole()),
+                "Staff access is required.");
+    }
+    static void operatorOrAdmin(Connection connection, UserSession session) {
+        User user = current(connection, session);
+        Validation.require(ADMIN.equals(user.getRole()) || OPERATOR.equals(user.getRole()),
+                "Operator or admin access is required.");
     }
     static void admin(Connection connection, UserSession session) {
         Validation.require(ADMIN.equals(current(connection, session).getRole()), "Admin access is required.");
@@ -32,5 +37,9 @@ final class Access {
         User user = current(connection, session);
         Validation.require(!GENERATOR.equals(user.getRole()) || Objects.equals(user.getGeneratorId(), generatorId),
                 "You cannot access another generator's requests.");
+    }
+    static void driver(Connection connection, UserSession session) {
+        User user = current(connection, session);
+        Validation.require(DRIVER.equals(user.getRole()) || ADMIN.equals(user.getRole()), "Driver access is required.");
     }
 }

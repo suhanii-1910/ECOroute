@@ -26,6 +26,23 @@ public final class Check {
     private static int failed = 0;
     private static int suiteCount = 0;
 
+    public static void reset() {
+        passed = 0;
+        failed = 0;
+        suiteCount = 0;
+    }
+
+    public static int getPassed() { return passed; }
+    public static int getFailed() { return failed; }
+    public static int getSuiteCount() { return suiteCount; }
+
+    public static void assertNoFailures() {
+        if (failed > 0) {
+            int errs = failed;
+            throw new AssertionError("Check harness reported " + errs + " failure(s)");
+        }
+    }
+
     private static final String GREEN = "\u001B[32m";
     private static final String RED   = "\u001B[31m";
     private static final String BOLD  = "\u001B[1m";

@@ -6,6 +6,8 @@ import ecoroute.planning.RequestEligibility;
 import ecoroute.planning.RequestView;
 import ecoroute.planning.VehicleLoad;
 import ecoroute.planning.VehicleView;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,10 +24,17 @@ import java.util.Map;
  */
 public class ZoneGrouperTest {
 
-    public static void main(String[] args) {
+    private ZoneGrouper grouper;
 
-        ZoneGrouper grouper = new ZoneGrouper();
+    @BeforeEach
+    public void setUp() {
+        Check.reset();
+        grouper = new ZoneGrouper();
+    }
 
+    @Test
+    public void testBasicGrouping() {
+        if (grouper == null) grouper = new ZoneGrouper();
         // ==============================================================
         Check.suite("ZoneGrouper - basic grouping");
         // ==============================================================
@@ -35,11 +44,17 @@ public class ZoneGrouperTest {
         Check.eq("zone 1 holds 3 requests", 3, grouped.get(1L).size());
         Check.eq("zone 2 holds 2 requests", 2, grouped.get(2L).size());
         Check.eq("no request is lost in grouping", 5, grouper.countAll(grouped));
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testDeterminism() {
+        if (grouper == null) grouper = new ZoneGrouper();
         // ==============================================================
         Check.suite("ZoneGrouper - DETERMINISM");
         Check.note("TreeMap guarantees zone order; the per-zone sort guarantees row order.");
         // ==============================================================
+        Map<Long, List<RequestView>> grouped = grouper.groupByZone(FakeData.pendingRequests());
         List<Long> zones = grouper.zonesWithWork(grouped);
         Check.eq("zones always come out in ascending order - first is 1", 1L, zones.get(0).longValue());
         Check.eq("...and second is 2", 2L, zones.get(1).longValue());
@@ -65,7 +80,12 @@ public class ZoneGrouperTest {
         Check.eq("...and the third",
                  103L, fromShuffled.get(1L).get(2).getRequestId());
         Check.note("This is why a SELECT without ORDER BY cannot break the demo.");
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testDefensiveInputHandling() {
+        if (grouper == null) grouper = new ZoneGrouper();
         // ==============================================================
         Check.suite("ZoneGrouper - defensive input handling");
         // ==============================================================
@@ -80,7 +100,11 @@ public class ZoneGrouperTest {
         withNull.add(FakeData.request(2L, 1L, "100.000"));
         Check.eq("a null element is skipped, the rest still group",
                  2, grouper.countAll(grouper.groupByZone(withNull)));
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testRequestEligibility() {
         // ==============================================================
         Check.suite("RequestEligibility - who may be planned today");
         // ==============================================================
@@ -103,7 +127,12 @@ public class ZoneGrouperTest {
         System.out.println();
         System.out.println("    Reason given to the user: \""
                 + RequestEligibility.explain(FakeData.notDueUntilTomorrow(), FakeData.TODAY) + "\"");
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testGroupEligibleByZone() {
+        if (grouper == null) grouper = new ZoneGrouper();
         // ==============================================================
         Check.suite("ZoneGrouper - groupEligibleByZone filters and reports");
         // ==============================================================
@@ -126,7 +155,11 @@ public class ZoneGrouperTest {
             }
         }
         Check.isFalse("the CANCELLED request never reaches a zone bucket", cancelledLeaked);
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testVehicleLoadCapacityInvariant() {
         // ==============================================================
         Check.suite("VehicleLoad - THE CAPACITY INVARIANT (BigDecimal)");
         Check.note("Mirrors Member 2's check: total.compareTo(capacity) <= 0");
@@ -162,7 +195,11 @@ public class ZoneGrouperTest {
                         load.getAssignedRequests().add(FakeData.request(5L, 1L, "10.000"));
                     }
                 });
+        Check.assertNoFailures();
+    }
 
+    @Test
+    public void testVehicleViewNullableHomeZone() {
         // ==============================================================
         Check.suite("VehicleView - the nullable home zone rule");
         Check.note("Mirrors Member 2: assignedZoneId == null || equals(zoneId)");
@@ -175,10 +212,31 @@ public class ZoneGrouperTest {
         Check.isNull("vehicle 5 has no home zone", v5.getAssignedZoneId());
         Check.isTrue("a NULL home zone serves zone 1", v5.canServeZone(1L));
         Check.isTrue("a NULL home zone serves zone 2", v5.canServeZone(2L));
+        Check.assertNoFailures();
+    }
 
-        // ==============================================================
+    public static void main(String[] args) {
+        Check.reset();
+        ZoneGrouperTest t = new ZoneGrouperTest();
+        t.grouper = new ZoneGrouper();
+
+        t.testBasicGrouping();
+        t.testDeterminism();
+        t.testDefensiveInputHandling();
+        t.testRequestEligibility();
+        t.testGroupEligibleByZone();
+        t.testVehicleLoadCapacityInvariant();
+        t.testVehicleViewNullableHomeZone();
+
+        List<RequestView> candidates = new ArrayList<RequestView>(FakeData.allRequests());
+        candidates.add(FakeData.notDueUntilTomorrow());
+        candidates.add(FakeData.zeroQuantityRequest());
+        List<RequestView> rejected = new ArrayList<RequestView>();
+        Map<Long, List<RequestView>> eligible =
+                t.grouper.groupEligibleByZone(candidates, FakeData.TODAY, rejected);
+
         System.out.println();
-        System.out.println(grouper.describe(eligible));
+        System.out.println(t.grouper.describe(eligible));
 
         System.exit(Check.report());
     }

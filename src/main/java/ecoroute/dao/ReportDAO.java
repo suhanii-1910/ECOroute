@@ -19,8 +19,8 @@ public final class ReportDAO {
 
     public List<CollectionVolume> collectionVolume(LocalDate from, LocalDate to) {
         return Jdbc.list(connection, """
-                SELECT w.category_id, c.category_name, SUM(w.actual_quantity) AS actual_kg,
-                       COUNT(w.actual_quantity) AS measured_lines
+                SELECT w.category_id, c.category_name, SUM(w.actual_quantity_kg) AS actual_kg,
+                       COUNT(w.actual_quantity_kg) AS measured_lines
                 FROM REQUEST_WASTE w
                 JOIN PICKUP_REQUEST p ON p.request_id = w.request_id
                 JOIN WASTE_CATEGORY c ON c.category_id = w.category_id
@@ -41,8 +41,8 @@ public final class ReportDAO {
 
     public List<RouteWeight> routeWeights(LocalDate from, LocalDate to) {
         return Jdbc.list(connection, """
-                SELECT r.route_id, COALESCE(SUM(w.estimated_quantity), 0) AS estimated_kg,
-                       SUM(w.actual_quantity) AS actual_kg, COUNT(w.actual_quantity) AS measured_lines,
+                SELECT r.route_id, COALESCE(SUM(w.estimated_quantity_kg), 0) AS estimated_kg,
+                       SUM(w.actual_quantity_kg) AS actual_kg, COUNT(w.actual_quantity_kg) AS measured_lines,
                        COUNT(w.category_id) AS total_lines
                 FROM ROUTE r LEFT JOIN ROUTE_STOP s ON s.route_id = r.route_id
                 LEFT JOIN REQUEST_WASTE w ON w.request_id = s.request_id
@@ -56,8 +56,8 @@ public final class ReportDAO {
     public List<VehicleUtilization> vehicleUtilization(LocalDate from, LocalDate to) {
         return Jdbc.list(connection, """
                 SELECT r.route_id, r.vehicle_id, v.capacity_kg,
-                       COALESCE(SUM(w.estimated_quantity), 0) / NULLIF(v.capacity_kg, 0) AS estimated_ratio,
-                       SUM(w.actual_quantity) / NULLIF(v.capacity_kg, 0) AS actual_ratio
+                       COALESCE(SUM(w.estimated_quantity_kg), 0) / NULLIF(v.capacity_kg, 0) AS estimated_ratio,
+                       SUM(w.actual_quantity_kg) / NULLIF(v.capacity_kg, 0) AS actual_ratio
                 FROM ROUTE r JOIN VEHICLE v ON v.vehicle_id = r.vehicle_id
                 LEFT JOIN ROUTE_STOP s ON s.route_id = r.route_id
                 LEFT JOIN REQUEST_WASTE w ON w.request_id = s.request_id
@@ -69,8 +69,8 @@ public final class ReportDAO {
 
     public List<QuantityComparison> estimatedVersusActual(LocalDate from, LocalDate to) {
         return Jdbc.list(connection, """
-                SELECT w.category_id, c.category_name, SUM(w.estimated_quantity) AS estimated_kg,
-                       SUM(w.actual_quantity) AS actual_kg, COUNT(w.actual_quantity) AS measured_lines,
+                SELECT w.category_id, c.category_name, SUM(w.estimated_quantity_kg) AS estimated_kg,
+                       SUM(w.actual_quantity_kg) AS actual_kg, COUNT(w.actual_quantity_kg) AS measured_lines,
                        COUNT(*) AS total_lines
                 FROM REQUEST_WASTE w JOIN PICKUP_REQUEST p ON p.request_id = w.request_id
                 JOIN WASTE_CATEGORY c ON c.category_id = w.category_id

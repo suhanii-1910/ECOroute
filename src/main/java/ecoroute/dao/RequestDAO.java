@@ -10,7 +10,7 @@ import java.util.Optional;
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
 public final class RequestDAO {
     private final Connection connection;
-    private static final String SELECT = "SELECT request_id, generator_id, request_date, preferred_pickup_date, status, completion_date, remarks FROM `PICKUP_REQUEST`";
+    private static final String SELECT = "SELECT request_id, generator_id, request_date, preferred_pickup_date, status, completion_date, notes FROM `PICKUP_REQUEST`";
     public RequestDAO(Connection connection) { this.connection = connection; }
     private static PickupRequest map(ResultSet r) throws SQLException {
         return new PickupRequest(
@@ -20,7 +20,7 @@ public final class RequestDAO {
                 r.getObject("preferred_pickup_date", java.time.LocalDate.class),
                 r.getString("status"),
                 r.getObject("completion_date", java.time.LocalDateTime.class),
-                r.getString("remarks"));
+                r.getString("notes"));
     }
 
     public Optional<PickupRequest> findById(long id) {
@@ -40,13 +40,14 @@ public final class RequestDAO {
         }
         return Jdbc.insert(
                 connection,
-                "INSERT INTO `PICKUP_REQUEST` (generator_id, request_date, preferred_pickup_date, status, completion_date, remarks) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO `PICKUP_REQUEST` (generator_id, request_date, preferred_pickup_date, status, completion_date, notes) VALUES (?, ?, ?, ?, ?, ?)",
                 value.getGeneratorId(),
                 value.getRequestDate(),
                 value.getPreferredPickupDate(),
                 value.getStatus(),
                 value.getCompletionDate(),
-                value.getRemarks());
+                value.getNotes());
+
     }
 
     public void updateStatus(long id, String expected, String next) {
@@ -72,6 +73,6 @@ public final class RequestDAO {
                 ecoroute.db.DatabaseContract.COMPLETED,
                 completedAt,
                 id,
-                ecoroute.db.DatabaseContract.ASSIGNED);
+                ecoroute.db.DatabaseContract.IN_ROUTE);
     }
 }

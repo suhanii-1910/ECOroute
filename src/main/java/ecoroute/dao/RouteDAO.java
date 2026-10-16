@@ -10,7 +10,7 @@ import java.util.Optional;
 /** Uses a borrowed connection; caller owns its lifetime and transactions. */
 public final class RouteDAO {
     private final Connection connection;
-    private static final String SELECT = "SELECT route_id, vehicle_id, zone_id, route_date, status, created_date, site_id FROM `ROUTE`";
+    private static final String SELECT = "SELECT route_id, vehicle_id, zone_id, route_date, status, created_date FROM `ROUTE`";
     public RouteDAO(Connection connection) { this.connection = connection; }
     private static Route map(ResultSet r) throws SQLException {
         return new Route(
@@ -19,8 +19,7 @@ public final class RouteDAO {
                 Jdbc.nullableLong(r, "zone_id"),
                 r.getObject("route_date", java.time.LocalDate.class),
                 r.getString("status"),
-                r.getObject("created_date", java.time.LocalDateTime.class),
-                Jdbc.nullableLong(r, "site_id"));
+                r.getObject("created_date", java.time.LocalDateTime.class));
     }
 
     public Optional<Route> findById(long id) {
@@ -37,13 +36,12 @@ public final class RouteDAO {
         }
         return Jdbc.insert(
                 connection,
-                "INSERT INTO `ROUTE` (vehicle_id, zone_id, route_date, status, created_date, site_id) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO `ROUTE` (vehicle_id, zone_id, route_date, status, created_date) VALUES (?, ?, ?, ?, ?)",
                 value.getVehicleId(),
                 value.getZoneId(),
                 value.getRouteDate(),
                 value.getStatus(),
-                value.getCreatedDate(),
-                value.getSiteId());
+                value.getCreatedDate());
     }
 
     public void updateStatus(long id, String expected, String next) {
@@ -56,5 +54,19 @@ public final class RouteDAO {
 
     public List<Route> findByZone(long id) {
         return Jdbc.list(connection, SELECT + " WHERE zone_id = ? ORDER BY route_date, route_id", RouteDAO::map, id);
+    }
+
+    public List<Route> findByDate(java.time.LocalDate date) {
+        return Jdbc.list(connection, SELECT + " WHERE route_date = ? ORDER BY route_id", RouteDAO::map, date);
+    }
+
+    public List<Route> findByStatus(String status) {
+        return Jdbc.list(connection, SELECT + " WHERE status = ? ORDER BY route_date, route_id", RouteDAO::map, status);
+    }
+
+    public boolean hasActiveRoute(long vehicleId) {
+        return Jdbc.one(connection,
+                "SELECT route_id FROM `ROUTE` WHERE vehicle_id = ? AND status IN ('PLANNED','IN_PROGRESS') LIMIT 1",
+                r -> r.getLong("route_id"), vehicleId).isPresent();
     }
 }
