@@ -57,31 +57,39 @@ INSERT IGNORE INTO FACTORY (generator_id, pollution_consent_no) VALUES
     (3, 'PCN-FAC-2022-003');
 
 -- ============================================================
--- USERS  (passwords must be re-hashed before production)
+-- USERS  (pre-seeded demo credentials, Password: Password@123)
+-- PBKDF2WithHmacSHA256 (600,000 iterations, 16-byte salt, 256-bit key)
+-- Generated and verified via ecoroute.service.PasswordHasher
 -- ============================================================
--- admin / Admin@123  (placeholder hash — replace before production)
-INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role) VALUES
+-- admin / Password@123
+INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role, is_active) VALUES
     ('admin',
-     'pbkdf2-sha256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-     'admin@ecoroute.local', 'System Administrator', 'ADMIN');
+     'pbkdf2-sha256$600000$B1pmnr30C0BsQuZljbsUww==$7eL9qG8uk4UgN/S+85Iw5bBu7Td5V0+/8LMuz+vOEl4=',
+     'admin@ecoroute.local', 'System Administrator', 'ADMIN', TRUE);
 
--- operator1 / Op@123
-INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role) VALUES
+-- operator1 / Password@123
+INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role, is_active) VALUES
     ('operator1',
-     'pbkdf2-sha256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-     'operator1@ecoroute.local', 'Meena Operator', 'OPERATOR');
+     'pbkdf2-sha256$600000$yh58Ku9fdr9u7xoaLS+JgQ==$kKckanEcqSPfmaCQ3xeN4ink1wPj2WqY8V08ji0Q0JY=',
+     'operator1@ecoroute.local', 'Meena Operator', 'OPERATOR', TRUE);
 
--- driver1 / Dr@123
-INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role) VALUES
+-- driver1 / Password@123
+INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role, is_active) VALUES
     ('driver1',
-     'pbkdf2-sha256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-     'driver1@ecoroute.local', 'Ravi Driver', 'DRIVER');
+     'pbkdf2-sha256$600000$Lg+lGwhd18Kk8gS16QCg2g==$VUvlFT3TKSv3rRro4bBUpv/RWg6zFP19Eq69iVDfJbA=',
+     'driver1@ecoroute.local', 'Ravi Driver', 'DRIVER', TRUE);
 
--- hospital_gen / Gen@123  (attached to generator_id = 1)
-INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role, generator_id) VALUES
+-- hospital_gen / Password@123  (attached to generator_id = 1)
+INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role, generator_id, is_active) VALUES
     ('hospital_gen',
-     'pbkdf2-sha256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-     'gen@hospital.city.gov', 'Hospital Generator User', 'GENERATOR', 1);
+     'pbkdf2-sha256$600000$VBYOyp/bz1a5R2gtSXAndQ==$oWu+JG6vNxr/FjG5dNZ3O9CTHGqw8j/BX3fYAvauegM=',
+     'gen@hospital.city.gov', 'Hospital Generator User', 'GENERATOR', 1, TRUE);
+
+-- society_gen / Password@123  (attached to generator_id = 2)
+INSERT IGNORE INTO `USER` (username, password_hash, email, full_name, role, generator_id, is_active) VALUES
+    ('society_gen',
+     'pbkdf2-sha256$600000$jrO+W260owQWvgili/DD4Q==$r27ph4DDL/RbiGbtesyCx2tDDr1nd3+Tznt4zuZLEtw=',
+     'society_gen@society.org', 'Green Valley Society Generator', 'GENERATOR', 2, TRUE);
 
 -- ============================================================
 -- VEHICLES

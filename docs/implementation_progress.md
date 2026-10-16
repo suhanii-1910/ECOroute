@@ -4,7 +4,7 @@
 
 This document records the comprehensive functional audit, architectural repair, and end-to-end verification of the ECOroute Java 17 Swing desktop application on branch `integration/ecoroute-complete`. All reported defects—including the broken sign-out workflow, unauthorized Administrator access to the Generator Portal, zeroed metrics across the Dashboard, swallowed database exceptions, and incomplete disposal flows—have been completely resolved, verified with automated regression tests, and packaged into a standalone distribution.
 
-The automated test suite now comprises **125 automated tests** passing with **0 failures and 0 errors** across both core algorithms, relational database persistence, and Swing UI event dispatch flows.
+The automated test suite now comprises **128 automated tests** passing with **0 failures and 0 errors** across both core algorithms, relational database persistence, and Swing UI event dispatch flows.
 
 ---
 
@@ -157,8 +157,9 @@ The automated test suite now comprises **125 automated tests** passing with **0 
 | | Add / Deactivate Users | **PASS** | Tested in `testAdminCrudOperationsPersistToDatabase` |
 | **Database & Packaging** | H2 in-memory test & demo database | **PASS** | Embedded demo database boots with full schema |
 | | Dedicated MySQL Integration IT | **PASS** | `MySqlBackendIT` guarded by `ECOROUTE_TEST_DB_DISPOSABLE=YES` |
+| | Real MySQL Verification against ecoroute_db | **PASS** | RBAC authentication, schema migration, E2E operational lifecycle |
 | | Executable Uber JAR packaging | **PASS** | Built via `maven-shade-plugin` (`target/ecoroute-1.0-SNAPSHOT.jar`) |
-| | Full Maven clean verify | **PASS** | `mvn clean verify` passes all 125 automated tests |
+| | Full Maven clean verify | **PASS** | `mvn clean verify` passes all 128 automated tests |
 | **Headless UI Execution** | Physical Display Screen Interaction | **NOT VERIFIED** | Environment has `DISPLAY=` (headless shell); manual mouse clicks could not be physically exercised, but all UI views and dialogs were verified via headless EDT harness tests (`runOnEdt`). |
 
 ---
@@ -170,11 +171,11 @@ The automated test suite now comprises **125 automated tests** passing with **0 
  T E S T S
 -------------------------------------------------------
 Running ecoroute.ui.DesktopApplicationTest
-Tests run: 33, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 14.44 s -- in ecoroute.ui.DesktopApplicationTest
+Tests run: 34, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 15.08 s -- in ecoroute.ui.DesktopApplicationTest
 Running ecoroute.BackendSmokeTest
-Tests run: 22, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.722 s -- in ecoroute.BackendSmokeTest
+Tests run: 23, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.936 s -- in ecoroute.BackendSmokeTest
 Running ecoroute.algorithm.RoutePlanningServiceTest
-Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in ecoroute.algorithm.RoutePlanningServiceTest
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.010 s -- in ecoroute.algorithm.RoutePlanningServiceTest
 Running ecoroute.algorithm.VehicleAssignmentTest
 Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.005 s -- in ecoroute.algorithm.VehicleAssignmentTest
 Running ecoroute.algorithm.ZoneGrouperTest
@@ -182,16 +183,16 @@ Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in ec
 Running ecoroute.algorithm.RouteStrategyTest
 Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in ecoroute.algorithm.RouteStrategyTest
 Running ecoroute.DatabaseTransactionTest
-Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in ecoroute.DatabaseTransactionTest
+Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in ecoroute.DatabaseTransactionTest
 Running ecoroute.service.RoutePlanningAdapterTest
-Tests run: 28, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.940 s -- in ecoroute.service.RoutePlanningAdapterTest
+Tests run: 29, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.131 s -- in ecoroute.service.RoutePlanningAdapterTest
 Running ecoroute.SecurityAndConfigurationTest
 Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.200 s -- in ecoroute.SecurityAndConfigurationTest
 
 Results:
-Tests run: 125, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 128, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
-[INFO] Total time:  28.398 s
+[INFO] Total time:  29.392 s
 ```
 
 ---

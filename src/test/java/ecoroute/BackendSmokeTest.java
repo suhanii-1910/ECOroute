@@ -202,6 +202,35 @@ public class BackendSmokeTest {
         assertThrows(InvalidRequestException.class, () -> requests.findPending(operator));
     }
 
+    @Test void userDaoHandlesMultipleUsersWithoutDuplicateEmailCollisions() {
+        database.transaction(c -> {
+            UserDAO dao = new UserDAO(c);
+            User u1 = new User(null, "test_multi_user1", "hash1", DRIVER, null, true, java.time.LocalDateTime.now());
+            long id1 = dao.insert(u1);
+            assertTrue(id1 > 0);
+
+            User u2 = new User(null, "test_multi_user2", "hash2", OPERATOR, null, true, java.time.LocalDateTime.now());
+            long id2 = dao.insert(u2);
+            assertTrue(id2 > 0);
+
+            User fetched1 = dao.findById(id1).orElseThrow();
+            User fetched2 = dao.findById(id2).orElseThrow();
+            assertNotNull(fetched1.getEmail());
+            assertNotNull(fetched2.getEmail());
+            assertNotEquals(fetched1.getEmail(), fetched2.getEmail());
+            assertEquals("test_multi_user1@ecoroute.local", fetched1.getEmail());
+            assertEquals("test_multi_user2@ecoroute.local", fetched2.getEmail());
+
+            User u3 = new User(null, "test_multi_user3", "hash3", "custom@test.org", "Custom Name", ADMIN, null, true, java.time.LocalDateTime.now());
+            long id3 = dao.insert(u3);
+            User fetched3 = dao.findById(id3).orElseThrow();
+            assertEquals("custom@test.org", fetched3.getEmail());
+            assertEquals("Custom Name", fetched3.getFullName());
+
+            return null;
+        });
+    }
+
     @Test void cancellationAndAssignmentTransitions() {
         long id = request(generatorId, categoryId, "1");
         requests.cancel(generatorUser, id);

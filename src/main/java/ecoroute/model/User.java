@@ -7,6 +7,8 @@ public class User {
     private Long userId;
     private String username;
     private String passwordHash;
+    private String email;
+    private String fullName;
     private String role;
     private Long generatorId;
     private boolean active;
@@ -15,9 +17,15 @@ public class User {
     public User() {}
 
     public User(Long userId, String username, String passwordHash, String role, Long generatorId, boolean active, LocalDateTime createdDate) {
+        this(userId, username, passwordHash, username != null ? username + "@ecoroute.local" : null, username != null ? username : "", role, generatorId, active, createdDate);
+    }
+
+    public User(Long userId, String username, String passwordHash, String email, String fullName, String role, Long generatorId, boolean active, LocalDateTime createdDate) {
         this.userId = userId;
         this.username = username;
         this.passwordHash = passwordHash;
+        this.email = email;
+        this.fullName = fullName;
         this.role = role;
         this.generatorId = generatorId;
         this.active = active;
@@ -32,6 +40,12 @@ public class User {
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

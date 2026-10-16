@@ -216,19 +216,52 @@ The executable JAR packages all dependencies (FlatLaf, H2, MySQL Connector/J) vi
 
 ---
 
-# ⚠️ MySQL Integration Status
+# 🐬 MySQL Integration & Live Verification Status
 
-The Java backend, Member 3 routing algorithms, and Member 4 Swing GUI are completely implemented and verified with automated test suites (**125 automated tests passing, 0 failures, 0 errors**).
+The Java backend, Member 3 routing algorithms, and Member 4 Swing GUI are completely implemented and verified with automated test suites (**128 automated tests passing, 0 failures, 0 errors**), as well as verified against live MySQL (`ecoroute_db`).
 
-However, **live MySQL integration remains unverified** against an external MySQL instance in this environment.
+### Live MySQL Verification Highlights
 
-- Embedded H2 tests and demo mode use an isolated schema fixture conforming to the relational contract.
-- External MySQL integration tests in `MySqlBackendIT.java` are safely guarded behind the environment variable `ECOROUTE_TEST_DB_DISPOSABLE=YES` to prevent destructive operations on shared or production databases.
-- When an isolated, disposable MySQL test instance is available, run:
+1. **Authentication & RBAC:**
+   - Pre-seeded demo accounts across all 4 system roles (`admin`, `operator1`, `driver1`, `hospital_gen`, and `society_gen`) authenticate using genuine PBKDF2-HMAC-SHA256 password hashes (`Password@123`).
+   - Admin login, dashboard KPI queries, and dynamic zone persistence (e.g. QA Zone #6) verified directly through the Swing GUI.
+2. **Non-Destructive Relational Compatibility (`sql/09_mysql_compatibility_migration.sql`):**
+   - Idempotent schema migration aligns existing tables with Java DAOs: adds `is_active` to `USER` and `WASTE_GENERATOR`, adds `completion_date` to `PICKUP_REQUEST`.
+   - Modifies `USER.email` to `NULL DEFAULT NULL` to prevent `uq_user_email` UNIQUE constraint collisions for multiple users without explicit emails, while preserving all existing email records.
+3. **End-to-End Operational Lifecycle:**
+   - Representative operational workflow verified: Generator pickup request creation → Operator route planning via `RoutePlanningAdapterService` → Driver collection execution with actual weights → Multi-facility disposal check-in invoking stored procedure `sp_record_disposal` → Operational reporting views (`V_REQUEST_STATUS`, `V_ROUTE_WEIGHT`, `V_VEHICLE_UTILISATION`).
+4. **Reproducible Fresh Setup:**
+   - Both `sql/02_create_tables.sql` and `sql/05_seed_data.sql` natively incorporate the corrected schema rules and verified demo account password hashes.
+
+### Running against Real MySQL
+
+To launch the desktop application against an existing MySQL database:
+
+```bash
+# 1. Apply non-destructive compatibility migrations and initialize demo logins
+mysql -u root -p ecoroute_db < sql/09_mysql_compatibility_migration.sql
+
+# 2. Launch the desktop application with MySQL configuration
+export ECOROUTE_DB_URL="jdbc:mysql://localhost:3306/ecoroute_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+export ECOROUTE_DB_USER="ecoroute_app"
+export ECOROUTE_DB_PASSWORD="your_password"
+java -jar target/ecoroute-1.0-SNAPSHOT.jar
+```
+
+To run the standalone CLI workflow verification runner against MySQL:
+
+```bash
+export ECOROUTE_DB_URL="jdbc:mysql://localhost:3306/ecoroute_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+export ECOROUTE_DB_USER="ecoroute_app"
+export ECOROUTE_DB_PASSWORD="your_password"
+mvn test-compile exec:java -Dexec.mainClass="ecoroute.MySqlWorkflowVerificationTool" -Dexec.classpathScope="test"
+```
+
+To run the dedicated MySQL integration test suite on a disposable test schema:
 
 ```bash
 export ECOROUTE_TEST_DB_DISPOSABLE=YES
-export ECOROUTE_TEST_DB_URL="jdbc:mysql://localhost:3306/ecoroute_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+export ECOROUTE_TEST_DB_URL="jdbc:mysql://localhost:3306/ecoroute_member2_test_disposable?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
 export ECOROUTE_TEST_DB_USER="test_user"
 export ECOROUTE_TEST_DB_PASSWORD="test_password"
 mvn -Pmysql-it verify

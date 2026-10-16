@@ -36,10 +36,11 @@ CREATE TABLE IF NOT EXISTS `USER` (
     user_id       BIGINT UNSIGNED AUTO_INCREMENT,
     username      VARCHAR(80)  NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    email         VARCHAR(120) NOT NULL,
-    full_name     VARCHAR(120) NOT NULL,
+    email         VARCHAR(120),
+    full_name     VARCHAR(120) NOT NULL DEFAULT '',
     role          VARCHAR(20)  NOT NULL,
     generator_id  BIGINT UNSIGNED,          -- populated iff role = 'GENERATOR'
+    is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     created_date  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_user        PRIMARY KEY (user_id),
     CONSTRAINT uq_user_username UNIQUE (username),
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS WASTE_GENERATOR (
     email           VARCHAR(120),
     latitude        DOUBLE,
     longitude       DOUBLE,
+    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
     created_date    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_generator    PRIMARY KEY (generator_id),
     CONSTRAINT fk_gen_zone     FOREIGN KEY (zone_id)
@@ -103,6 +105,7 @@ CREATE TABLE IF NOT EXISTS PICKUP_REQUEST (
     preferred_pickup_date DATE,
     status                VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
     notes                 TEXT,
+    completion_date       DATETIME        NULL,
     CONSTRAINT pk_pickup_request  PRIMARY KEY (request_id),
     CONSTRAINT fk_req_generator   FOREIGN KEY (generator_id)
         REFERENCES WASTE_GENERATOR(generator_id) ON DELETE RESTRICT ON UPDATE CASCADE,

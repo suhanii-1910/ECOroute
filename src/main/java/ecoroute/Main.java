@@ -85,7 +85,9 @@ public final class Main {
         String envUser = env.get("ECOROUTE_DB_USER");
         String envPass = env.get("ECOROUTE_DB_PASSWORD");
 
-        if (envUrl != null && !envUrl.isBlank() && envUser != null && envPass != null) {
+        boolean requireMysql = Boolean.parseBoolean(env.get("ECOROUTE_REQUIRE_MYSQL"));
+
+        if ((envUrl != null && !envUrl.isBlank()) || requireMysql) {
             try {
                 DatabaseConnection dbConn = DatabaseConnection.fromEnvironment(env);
                 try (Connection c = dbConn.open()) {
@@ -93,7 +95,9 @@ public final class Main {
                     return new DatabaseHolder(new Database(dbConn), "MySQL (" + envUrl + ")");
                 }
             } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "Failed connecting to configured MySQL environment: " + ex.getMessage());
+                String errorMsg = "Explicit MySQL configuration failed to connect: " + ex.getMessage();
+                LOGGER.log(Level.SEVERE, errorMsg);
+                throw new IllegalStateException(errorMsg, ex);
             }
         }
 
@@ -407,13 +411,15 @@ public final class Main {
 
     private static void insertUser(Connection c, String username, String hash, String role, Long generatorId) throws java.sql.SQLException {
         try (PreparedStatement s = c.prepareStatement(
-                "INSERT INTO `USER` (username, password_hash, role, generator_id, is_active, created_date) VALUES (?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO `USER` (username, password_hash, email, full_name, role, generator_id, is_active, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
             s.setString(1, username);
             s.setString(2, hash);
-            s.setString(3, role);
-            s.setObject(4, generatorId);
-            s.setBoolean(5, true);
-            s.setObject(6, LocalDateTime.now());
+            s.setString(3, username + "@ecoroute.local");
+            s.setString(4, username);
+            s.setString(5, role);
+            s.setObject(6, generatorId);
+            s.setBoolean(7, true);
+            s.setObject(8, LocalDateTime.now());
             s.executeUpdate();
         }
     }
