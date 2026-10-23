@@ -1,353 +1,167 @@
+[README-3.md](https://github.com/user-attachments/files/33892606/README-3.md)
 # ♻️ ECOroute
 
-## Waste Management and Pickup Routing System
+**Waste Management and Pickup Routing System**
 
-ECOroute is a Java 17 and MySQL based academic project for managing waste generators, pickup requests, vehicles, collection routes, route stops, waste quantities, and operational reports.
+ECOroute is a Java desktop application for managing the complete waste-collection workflow—from pickup requests and vehicle allocation to route planning, collection, disposal, and operational reporting.
 
-The project is structured across four member responsibilities so that each layer is developed independently and integrated cleanly through well-defined service and data contracts.
+Built with **Java 17**, **Swing**, **JDBC**, and **MySQL**, the application also provides an embedded **H2 demo mode** for exploring the system without configuring an external database.
 
----
+## Features
 
-## 👥 Team Responsibilities
+- **Role-based access:** Separate workflows for administrators, operators, drivers, and waste generators.
+- **Pickup management:** Create pickup requests with multiple waste categories, estimated quantities, and preferred dates.
+- **Fleet and route planning:** Group requests by zone, allocate vehicles based on capacity, and generate ordered pickup stops.
+- **Driver workflow:** View assigned routes, record arrival and completion, enter actual collected weights, and skip stops with reasons.
+- **Disposal tracking:** Validate facility compatibility, record disposal receipts, and support waste streams requiring different facilities.
+- **Reports and audit:** Review collection totals, route statistics, vehicle utilization, disposal records, and estimated-versus-actual quantities.
+- **Data integrity:** Relational constraints, parameterized SQL queries, validation, transactions, and role-based authorization.
+- **Standalone demo:** Explore the desktop application using automatically populated sample data.
 
-| Member | Responsibility |
-|---|---|
-| Member 1 | MySQL database, tables, PK/FK constraints, seed data, views, SQL queries, procedures, functions, triggers |
-| **Member 2** | **Java backend + JDBC, models, DAO layer, CRUD, services, validation, transactions, exceptions, backend testing** |
-| Member 3 | Zone grouping, greedy capacity-constrained vehicle assignment, nearest-neighbour route generation, route-planning algorithms |
-| Member 4 | Swing GUI, event handling, GUI-to-backend integration, final end-to-end integration |
+## Technology Stack
 
-### Dependency Flow
+| Area | Technology |
+| --- | --- |
+| Language | Java 17 |
+| Desktop UI | Java Swing, FlatLaf |
+| Database access | JDBC, MySQL Connector/J |
+| Relational database | MySQL |
+| Embedded demo database | H2 |
+| Build and dependencies | Apache Maven |
+| Testing | Automated Java tests |
 
-```text
-Member 1 — MySQL Database
-          ↓
-Member 2 — Java Backend + JDBC
-          ↓
-Member 3 — Algorithms / Route Planning
-          ↓
-Member 4 — Swing GUI / Final Integration
-```
-
-The backend uses plain Java 17 and JDBC. It includes relational table models, parameterized DAOs, authenticated services, transactional request/route/collection workflows, operational reports, and automated test fixtures. Disposal facility retrieval, multi-category mixed-waste check-ins, and generator subtype models follow the frozen schema. Member 3 supplies route-planning and stop sequencing; Member 4 provides the Swing GUI calling backend services. Team ownership above remains preserved.
-
----
-
-# 🖥️ Desktop Application & Integration
-
-The integrated ECOroute desktop application features a modern Swing GUI built with the FlatLaf dark theme, implementing strict Role-Based Access Control (RBAC) across four operational user roles:
-
-1. **Administrator (`ADMIN`)**: System administration, zone/vehicle/category/facility management, user activation/deactivation, planning & dispatch, driver portal, disposal check-in, and operational audit reports.
-2. **Operator (`OPERATOR`)**: Route planning & dispatch, fleet overview, driver portal, disposal check-in, and operational reports.
-3. **Driver (`DRIVER`)**: Active operational route execution, stop-by-stop sequencing, arrival/completion timestamps, weight verification with human-readable category names, and stop skipping with reason notes.
-4. **Generator (`GENERATOR`)**: Generator self-service portal, facility profile, multi-category pickup request submission with preferred dates, and request cancellation.
-
-### Embedded Demo Mode (Zero Setup Required)
-
-When launched without external MySQL environment variables, ECOroute automatically initializes an isolated, in-memory **H2 database** pre-seeded with complete sample data:
-- 5 operational zones (North, South, East, West, Central)
-- 6 waste categories (General, Organic, Recyclable, Electronic, Chemical, Biomedical)
-- 5 generators across subtypes (Hospital, Housing Society, Factory, Hotel, School)
-- 5 fleet vehicles with realistic capacities (1,000 kg – 3,000 kg)
-- 4 disposal facilities with accepted category constraints
-- Active and historical pickup requests, planned routes, completed collections, and verified disposal receipts
-
-#### Default Demo Credentials (Password: `Password@123`)
-
-| Username | Role | Description |
-|---|---|---|
-| `admin` | Administrator | System Administrator with full console access |
-| `operator1` | Operator | Dispatcher & route planner |
-| `driver1` | Driver | Collection driver |
-| `hospital_gen` | Generator | City General Hospital |
-| `society_gen` | Generator | Green Valley Housing Society |
-
----
-
-# 🧱 Project Structure
+## Application Architecture
 
 ```text
-ECOroute/
-│
-├── docs/
-│   ├── database_contract.md
-│   ├── implementation_progress.md
-│   ├── jdbc_setup.md
-│   ├── member2_handoff.md
-│   ├── member2_verification.md
-│   └── member2_viva.md
-│
-├── sql/
-│   ├── 01_schema.sql
-│   ├── 02_views.sql
-│   ├── 03_triggers.sql
-│   ├── 04_stored_procedures.sql
-│   └── 05_seed_data.sql
-│
-├── src/
-│   ├── main/
-│   │   └── java/
-│   │       └── ecoroute/
-│   │           ├── algorithm/
-│   │           ├── dao/
-│   │           ├── db/
-│   │           ├── exception/
-│   │           ├── model/
-│   │           ├── service/
-│   │           └── ui/
-│   │
-│   └── test/
-│       ├── java/
-│       │   └── ecoroute/
-│       └── resources/
-│           ├── member2_fixture.sql
-│           └── schema_h2.sql
-│
-├── .env.example
-├── .gitignore
-├── pom.xml
-└── README.md
+Swing desktop interface
+          |
+          v
+Service layer (validation and business rules)
+          |
+          v
+DAO layer (SQL and persistence)
+          |
+          v
+JDBC connection and transaction management
+          |
+          v
+MySQL or embedded H2 database
 ```
 
----
+The application separates presentation, business logic, and persistence so each part can be maintained and tested independently. Java model classes represent the application's entities, including users, vehicles, requests, routes, and disposal records.
 
-# 🗄️ Database Contract
+## Getting Started
 
-The backend adheres strictly to the frozen ECOroute relational schema.
+### Prerequisites
 
-### Main Relations
+- JDK 17 or newer
+- Apache Maven
+- MySQL, **only if you want to use an external database**
 
-```text
-ZONE
-WASTE_GENERATOR
-USER
-WASTE_CATEGORY
-VEHICLE
-ROUTE
-PICKUP_REQUEST
-ROUTE_STOP
-REQUEST_WASTE
-DISPOSAL_FACILITY
-DISPOSAL_RECORD
-FACILITY_ACCEPTED_CATEGORY
-```
-
-### Generator Subtype Relations
-
-```text
-HOSPITAL
-HOUSING_SOCIETY
-FACTORY
-```
-
-### Core Schema Rules
-
-- `WASTE_GENERATOR.zone_id` is a mandatory foreign key to `ZONE`.
-- `PICKUP_REQUEST` does **not** store `zone_id`; request zone is derived through the linked generator.
-- `REQUEST_WASTE` uses composite primary key `(request_id, category_id)`.
-- `REQUEST_WASTE.actual_quantity_kg` remains `NULL` until physical collection is recorded by the driver.
-- `ROUTE_STOP.request_id` is unique (`uq_route_stop_request`).
-- `(route_id, stop_sequence)` is unique.
-- Total route weights are aggregated from `ROUTE_STOP` and `REQUEST_WASTE`, not duplicated as mutable columns in `ROUTE`.
-- Mixed-waste routes carrying categories requiring different disposal facilities support partial disposal check-ins across multiple facilities before route completion.
-
-See: `docs/database_contract.md`
-
----
-
-# 🔌 JDBC Configuration
-
-The backend reads database configuration from environment variables. If these variables are omitted, ECOroute automatically launches in standalone embedded H2 demo mode.
-
-```bash
-ECOROUTE_DB_URL
-ECOROUTE_DB_USER
-ECOROUTE_DB_PASSWORD
-```
-
-Example for connecting to a live MySQL instance:
-
-```bash
-export ECOROUTE_DB_URL="jdbc:mysql://localhost:3306/ecoroute_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-export ECOROUTE_DB_USER="ecoroute_app"
-export ECOROUTE_DB_PASSWORD="your_password"
-```
-
-Do not commit real database credentials to version control. [`.env.example`](.env.example) serves as a template; Java does not load `.env` files automatically.
-
-For detailed setup instructions: `docs/jdbc_setup.md`
-
----
-
-# 🚀 Build, Test & Run
-
-Compilation explicitly targets **Java 17** even when Maven runs on a newer JDK.
-
-### Run Unit & Integration Tests
-
-```bash
-mvn clean test
-```
-
-Default tests run without an external MySQL dependency using an isolated, compliant H2 database.
-
-To execute the full verification suite including UI Event Dispatch Thread (EDT) headless tests:
-
-```bash
-mvn clean verify
-```
-
-### Run the Application
-
-#### Option 1: Direct Maven Execution
-
-```bash
-mvn exec:java
-```
-
-#### Option 2: Run Standalone Uber JAR
+### Build and run
 
 ```bash
 mvn clean package
 java -jar target/ecoroute-1.0-SNAPSHOT.jar
 ```
 
-The executable JAR packages all dependencies (FlatLaf, H2, MySQL Connector/J) via `maven-shade-plugin`.
-
----
-
-# 🐬 MySQL Integration & Live Verification Status
-
-The Java backend, Member 3 routing algorithms, and Member 4 Swing GUI are completely implemented and verified with automated test suites (**128 automated tests passing, 0 failures, 0 errors**), as well as verified against live MySQL (`ecoroute_db`).
-
-### Live MySQL Verification Highlights
-
-1. **Authentication & RBAC:**
-   - Pre-seeded demo accounts across all 4 system roles (`admin`, `operator1`, `driver1`, `hospital_gen`, and `society_gen`) authenticate using genuine PBKDF2-HMAC-SHA256 password hashes (`Password@123`).
-   - Admin login, dashboard KPI queries, and dynamic zone persistence (e.g. QA Zone #6) verified directly through the Swing GUI.
-2. **Non-Destructive Relational Compatibility (`sql/09_mysql_compatibility_migration.sql`):**
-   - Idempotent schema migration aligns existing tables with Java DAOs: adds `is_active` to `USER` and `WASTE_GENERATOR`, adds `completion_date` to `PICKUP_REQUEST`.
-   - Modifies `USER.email` to `NULL DEFAULT NULL` to prevent `uq_user_email` UNIQUE constraint collisions for multiple users without explicit emails, while preserving all existing email records.
-3. **End-to-End Operational Lifecycle:**
-   - Representative operational workflow verified: Generator pickup request creation → Operator route planning via `RoutePlanningAdapterService` → Driver collection execution with actual weights → Multi-facility disposal check-in invoking stored procedure `sp_record_disposal` → Operational reporting views (`V_REQUEST_STATUS`, `V_ROUTE_WEIGHT`, `V_VEHICLE_UTILISATION`).
-4. **Reproducible Fresh Setup:**
-   - Both `sql/02_create_tables.sql` and `sql/05_seed_data.sql` natively incorporate the corrected schema rules and verified demo account password hashes.
-
-### Running against Real MySQL
-
-To launch the desktop application against an existing MySQL database:
+To run through Maven instead:
 
 ```bash
-# 1. Apply non-destructive compatibility migrations and initialize demo logins
-mysql -u root -p ecoroute_db < sql/09_mysql_compatibility_migration.sql
+mvn exec:java
+```
 
-# 2. Launch the desktop application with MySQL configuration
-export ECOROUTE_DB_URL="jdbc:mysql://localhost:3306/ecoroute_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-export ECOROUTE_DB_USER="ecoroute_app"
-export ECOROUTE_DB_PASSWORD="your_password"
+### Embedded demo mode
+
+When the application is started without an external MySQL configuration, it can initialize an in-memory H2 database containing sample zones, waste categories, generators, vehicles, pickup requests, routes, and disposal records.
+
+**Demo credentials** (for local testing only):
+
+| Username | Role | Password |
+| --- | --- | --- |
+| `admin` | Administrator | `Password@123` |
+| `operator1` | Operator | `Password@123` |
+| `driver1` | Driver | `Password@123` |
+| `hospital_gen` | Waste generator | `Password@123` |
+| `society_gen` | Waste generator | `Password@123` |
+
+> The embedded database is intended for demonstration. In-memory data is not a substitute for a persistent production database. Change demo credentials before deploying in a real environment.
+
+### Connect to MySQL
+
+Create and initialize the database using the scripts in `sql/`, then supply the JDBC configuration through your terminal environment:
+
+```bash
+export ECOROUTE_DB_URL='jdbc:mysql://localhost:3306/ecoroute_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
+export ECOROUTE_DB_USER='your_mysql_username'
+read -rs 'ECOROUTE_DB_PASSWORD?MySQL password: '
+echo
+export ECOROUTE_DB_PASSWORD
+
 java -jar target/ecoroute-1.0-SNAPSHOT.jar
 ```
 
-To run the standalone CLI workflow verification runner against MySQL:
+The interactive password command above is for **zsh**, the default shell on modern macOS. For other shells, set the environment variable using their supported syntax.
+
+Do not commit passwords or secret configuration to Git. The `.env.example` file is a template; Java does not automatically load a `.env` file.
+
+## How the System Works
+
+1. **Request:** A waste generator submits a pickup request with waste types and estimated quantities.
+2. **Plan:** The operator reviews requests, groups them by zone, and assigns eligible loads to available vehicles.
+3. **Route:** Pickup stops are ordered using a nearest-neighbour route heuristic.
+4. **Collect:** The driver records collection progress and actual waste quantities.
+5. **Dispose:** Waste is checked in at compatible disposal facilities, and the relevant records are updated.
+6. **Report:** The application summarizes requests, collected waste, completed routes, vehicle usage, and disposals.
+
+### Route planning approach
+
+The planning pipeline uses zone grouping, a greedy capacity-aware vehicle assignment strategy, and nearest-neighbour stop ordering. These methods generate practical plans without claiming to find a globally optimal route.
+
+## Project Structure
+
+```text
+ECOroute/
+├── docs/                  # Architecture, setup, and reference documentation
+├── sql/                   # Schema, views, triggers, procedures, and seed data
+├── src/
+│   ├── main/java/ecoroute/
+│   │   ├── algorithm/     # Vehicle assignment and route planning
+│   │   ├── dao/           # Database access objects
+│   │   ├── db/            # JDBC connections and transactions
+│   │   ├── exception/     # Application-specific exceptions
+│   │   ├── model/         # Java data models
+│   │   ├── service/       # Business logic and validation
+│   │   └── ui/            # Swing screens and components
+│   └── test/              # Automated tests and test resources
+├── .env.example           # Environment variable examples
+├── pom.xml                # Maven configuration
+└── README.md
+```
+
+## Testing
+
+Run the automated tests:
 
 ```bash
-export ECOROUTE_DB_URL="jdbc:mysql://localhost:3306/ecoroute_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-export ECOROUTE_DB_USER="ecoroute_app"
-export ECOROUTE_DB_PASSWORD="your_password"
-mvn test-compile exec:java -Dexec.mainClass="ecoroute.MySqlWorkflowVerificationTool" -Dexec.classpathScope="test"
+mvn clean test
 ```
 
-To run the dedicated MySQL integration test suite on a disposable test schema:
+Run Maven's verification lifecycle:
 
 ```bash
-export ECOROUTE_TEST_DB_DISPOSABLE=YES
-export ECOROUTE_TEST_DB_URL="jdbc:mysql://localhost:3306/ecoroute_member2_test_disposable?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-export ECOROUTE_TEST_DB_USER="test_user"
-export ECOROUTE_TEST_DB_PASSWORD="test_password"
-mvn -Pmysql-it verify
+mvn clean verify
 ```
 
----
+Some MySQL integration checks require a separately configured disposable test database. Never run destructive test scripts against a database containing information you want to keep.
 
-# 🧠 Member 3 Algorithm Integration
+## Notes
 
-Member 3's routing and assignment algorithms are integrated into `ecoroute.service.RoutePlanningAdapterService`:
+- MySQL normally uses port **3306**; Swing itself does not require a web server or HTTP port.
+- SQL statements are handled through the backend DAO layer rather than directly inside GUI components.
+- The application supports an H2 demo database and an external MySQL configuration; these are separate databases.
+- Demo credentials and sample data are meant for local development and demonstrations only.
 
-```text
-Pending Requests
-       ↓
-ZoneGrouper (group eligible requests by zone)
-       ↓
-VehicleAssignment (greedy First-Fit-Decreasing bin packing)
-       ↓
-NearestNeighborRoute (TSP route optimization from depot)
-       ↓
-RoutePersistenceService (atomic persistence to ROUTE & ROUTE_STOP)
-```
+## License
 
-The planning pipeline surfaces actionable unassigned reason codes (e.g., `FLEET_CAPACITY_FULL`, `EXCEEDS_LARGEST_VEHICLE`) when requests cannot be accommodated.
-
----
-
-# 🖥️ Member 4 UI Architecture
-
-Member 4's Swing GUI communicates strictly through the backend service layer:
-
-```text
-Swing GUI (ecoroute.ui.*)
-          ↓
-Service Layer (ecoroute.service.*)
-          ↓
-DAO Layer (ecoroute.dao.*)
-          ↓
-JDBC Abstraction (ecoroute.db.Jdbc)
-          ↓
-Relational Database (H2 / MySQL)
-```
-
-Swing components never execute raw SQL or handle `ResultSet` objects directly. All asynchronous operations execute off the Event Dispatch Thread via `SwingWorker` with structured logging.
-
----
-
-# 🔄 Operational Lifecycle Flow
-
-### 1. Request Creation
-A generator creates a pickup request with estimated waste weights across multiple categories. `PickupRequestService` saves the request and waste line items atomically.
-
-### 2. Route Planning & Dispatch
-An operator previews optimized routes generated by `RoutePlanningService`. Saving the plan writes `ROUTE` and `ROUTE_STOP` records. Dispatching transitions the route to `IN_PROGRESS` and vehicle to `IN_ROUTE`.
-
-### 3. Driver Collection Execution
-The driver inspects ordered stops, starts the route, and records actual collected weights per category. When all stops are completed or skipped, the route automatically transitions to `DISPATCHED_TO_DISPOSAL`.
-
-### 4. Multi-Facility Disposal Check-in
-At the disposal facility, the operator records gross and tare weights. The system evaluates facility compatibility against remaining waste streams, inserts a verified `DISPOSAL_RECORD`, and transitions the route to `COMPLETED` and vehicle to `AVAILABLE` once all categories are cleared.
-
-### 5. Operational Reporting & Audit
-Auditors and operators inspect volume aggregations, route weights, vehicle utilization ratios, and estimated-versus-actual weight discrepancy reports, with one-click CSV export.
-
----
-
-# 📚 Documentation Index
-
-- **Database Contract & Schema Details**: [`docs/database_contract.md`](docs/database_contract.md)
-- **JDBC Setup & Configuration Guide**: [`docs/jdbc_setup.md`](docs/jdbc_setup.md)
-- **Team Service Handoff Reference**: [`docs/member2_handoff.md`](docs/member2_handoff.md)
-- **Backend Verification Notes**: [`docs/member2_verification.md`](docs/member2_verification.md)
-- **Member 2 Viva Reference**: [`docs/member2_viva.md`](docs/member2_viva.md)
-- **Implementation Progress & Audit Matrix**: [`docs/implementation_progress.md`](docs/implementation_progress.md)
-
----
-
-# 🚦 Overall Project Status
-
-```text
-Relational Schema & DDL        ✅ Finalized (sql/ directory)
-Member 2 Java Backend          ✅ Implemented & tested
-Member 3 Route Planning        ✅ Implemented & tested (ZoneGrouper, FFD, TSP)
-Member 4 Swing GUI             ✅ Implemented & tested (FlatLaf Desktop App)
-Embedded H2 Demo Mode          ✅ Fully functional with pre-seeded demo data
-Test Suite                     ✅ 125 automated tests passing (0 failures, 0 errors)
-Standalone Uber JAR Packaging  ✅ ecoroute-1.0-SNAPSHOT.jar built
-Live MySQL Verification        ⏳ Unverified (requires disposable MySQL instance)
-```
+No open-source license is declared in this README. Add a `LICENSE` file if you want to specify how others may use or distribute the project.
